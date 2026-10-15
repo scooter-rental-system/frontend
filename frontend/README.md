@@ -18,6 +18,32 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+### Backend connection
+
+Browser requests to `/api/*` are proxied to the Spring Boot backend (see `rewrites` in `next.config.ts`). The target defaults to `http://localhost:8080`; set `BACKEND_URL` before `npm run dev` / `npm run build` to change it.
+
+### Checks
+
+```bash
+npm run lint
+npm run typecheck   # generates Next route types, then runs tsc
+npm test            # unit tests (Node's built-in test runner)
+npm run build
+```
+
+### Customer dashboard (FE-004)
+
+Routes: `/dashboard` (overview, active reservations, recent history), `/dashboard/bookings` (full booking history with filters) and `/dashboard/profile`.
+
+It expects these backend endpoints, authenticated with the JWT stored by the login flow (`setToken` in `lib/api.ts`):
+
+| Endpoint | Response | Must be scoped to |
+|---|---|---|
+| `GET /api/me` | current user (`User` in `lib/types.ts`) | the token's user |
+| `GET /api/bookings` | `BookingDtos.BookingResponse[]` | the token's user only |
+
+The page hides itself from signed-out and non-customer users, but that is only a UX guard. Data isolation must be enforced by the backend.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
