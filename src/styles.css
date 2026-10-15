@@ -446,3 +446,182 @@ input::placeholder { color: var(--muted); opacity: 0.7; }
   color: var(--muted);
   margin-bottom: 12px;
 }
+
+/* ─── Customer dashboard (FE-004) ───────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.page--narrow { max-width: 720px; }
+
+.page-header h1 { font-size: clamp(1.5rem, 4vw, 2rem); margin-bottom: 4px; }
+
+.section-title {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading a { font-size: 0.875rem; font-weight: 500; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.profile-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.stat__label { font-size: 0.85rem; color: var(--muted); }
+
+.stat__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.badge.green { background: var(--brand-soft);  color: var(--brand); }
+.badge.blue  { background: var(--info-soft);   color: var(--info); }
+.badge.amber { background: var(--accent-soft); color: hsl(37 90% 38%); }
+.badge.red   { background: var(--danger-soft); color: var(--danger); }
+
+@media (prefers-color-scheme: dark) {
+  .badge.amber { color: var(--accent); }
+}
+
+.booking-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.booking-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.booking-card__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.booking-card__info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.booking-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.booking-card__action { color: hsl(37 90% 38%); font-weight: 500; }
+
+@media (prefers-color-scheme: dark) {
+  .booking-card__action { color: var(--accent); }
+}
+
+.booking-card__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-card__details {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.detail-row dt { color: var(--muted); width: 160px; flex-shrink: 0; }
+.detail-row dd { min-width: 0; overflow-wrap: anywhere; }
+
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.filter-tabs button.is-active {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.load-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.load-error .alert { flex: 1; }
+
+@media (max-width: 860px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .container { padding: 24px 16px 64px; }
+  .topbar-inner { padding: 8px 16px; row-gap: 4px; }
+  .topbar-right { margin-left: auto; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .stat__value { font-size: 1.2rem; overflow-wrap: anywhere; }
+  .booking-card__main { flex-direction: column; align-items: stretch; }
+  .booking-card__side { justify-content: space-between; }
+  .detail-row { flex-direction: column; gap: 0; }
+  .detail-row dt { width: auto; }
+  .load-error { flex-direction: column; align-items: stretch; }
+}

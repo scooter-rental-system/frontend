@@ -18,7 +18,13 @@ export function Layout() {
 
           <nav className="nav">
             <NavLink to="/" end>Home</NavLink>
-            {user && <NavLink to="/bookings">My Bookings</NavLink>}
+            {user?.role === 'USER' && (
+              <>
+                <NavLink to="/dashboard">Dashboard</NavLink>
+                <NavLink to="/bookings">My Bookings</NavLink>
+                <NavLink to="/profile">Profile</NavLink>
+              </>
+            )}
             {isAdmin(user?.role) && <NavLink to="/admin">Admin</NavLink>}
           </nav>
 
@@ -63,12 +69,16 @@ export function Layout() {
 /**
  * Redirects unauthenticated users to /login (with return path in state).
  * If `admin` is true, also redirects non-admin users to /.
+ * If `customer` is true, also redirects staff (non-USER) accounts to /.
+ * This is a UX guard only: the backend must authorize every request.
  */
 export function RequireAuth({
   admin,
+  customer,
   children,
 }: {
   admin?: boolean;
+  customer?: boolean;
   children: JSX.Element;
 }) {
   const { user, loading } = useAuth();
@@ -87,6 +97,10 @@ export function RequireAuth({
   }
 
   if (admin && !isAdmin(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (customer && user.role !== 'USER') {
     return <Navigate to="/" replace />;
   }
 
