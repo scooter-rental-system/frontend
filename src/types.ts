@@ -38,6 +38,43 @@ export interface RegisterFormData {
   drivingLicenseNo: string;
 }
 
+// ─── Scooters & Gear ─────────────────────────────────────────────────────────
+
+export type ScooterStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE';
+
+export interface Scooter {
+  id: string;
+  code: string;
+  model: string;
+  plateNumber: string;
+  engineCc: number | null;
+  description: string;
+  imageUrl: string | null;
+  hourlyRate: number;
+  perKmRate: number;
+  available: boolean;
+  status: ScooterStatus;
+}
+
+export interface GearItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  dailyRate: number;
+  totalQuantity: number;
+  available: number | null;
+}
+
+/** Price estimate returned by POST /api/bookings/quote. */
+export interface Quote {
+  hourlyRate: number;
+  perKmRate: number;
+  gear: { gearItemId: string; name: string; quantity: number; lineTotal: number }[];
+  /** 1 started hour + 1 started day of gear: paid now. */
+  initialCharge: number;
+}
+
 // ─── Bookings ────────────────────────────────────────────────────────────────
 
 /** SDS 3.2: PENDING → ACTIVE → COMPLETED, or CANCELLED. */
@@ -77,7 +114,7 @@ export interface Booking {
   billableHours: number | null;
   distanceKm: number | null;
   totalCost: number | null;
-  /** Balance due only: the frozen settlement (endTime and totalCost stay null until COMPLETED). */
+  /** Balance due only: frozen settlement (endTime and totalCost stay null until COMPLETED, SDS 2.2). */
   endedAt: string | null;
   pendingDistanceKm: number | null;
   pendingTotalCost: number | null;
@@ -92,9 +129,99 @@ export interface Booking {
     paidAt: string | null;
   } | null;
   pickupLocation: string;
+  /** SDS 2.2: GPS position where the rental ended; null until it completes. */
   dropLocation: string | null;
   notes: string | null;
   contractSigned: boolean;
   cancelledAt: string | null;
   createdAt: string;
+}
+
+export interface Contract {
+  id: string;
+  contractNumber: string;
+  termsVersion: string;
+  termsText: string;
+  signed: boolean;
+  signedName: string | null;
+  signedAt: string | null;
+}
+
+/** One payment per booking (SDS 2.3). */
+export interface Payment {
+  id: string;
+  bookingId: string;
+  bookingReference: string | null;
+  customerName: string | null;
+  amount: number;
+  method: 'CARD' | 'ONLINE';
+  status: PaymentStatus;
+  provider: string;
+  stripePaymentId: string | null;
+  cardLast4: string | null;
+  balanceDue: number | null;
+  failureReason: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+/** What the browser needs to confirm a payment with the provider (Stripe PaymentIntent shape). */
+export interface PaymentIntent {
+  paymentId: string;
+  bookingId: string;
+  purpose: 'INITIAL' | 'BALANCE';
+  intentId: string;
+  clientSecret: string;
+  amount: number;
+  currency: string;
+  provider: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  bookingId: string;
+  bookingReference: string;
+  customerName: string;
+  customerEmail: string;
+  /** FINAL is issued when a rental ends; RENTAL / SETTLEMENT are from the earlier model. */
+  kind: 'FINAL' | 'RENTAL' | 'SETTLEMENT';
+  /** Earlier invoices only. */
+  status: 'ISSUED' | 'PAID' | 'VOID' | null;
+  paymentStatus: PaymentStatus | null;
+  balanceDue: number | null;
+  currency: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  issuedAt: string;
+  lines: { description: string; quantity: number; unitPrice: number; amount: number }[];
+}
+
+export interface LivePosition {
+  scooterId: string;
+  code: string;
+  model: string;
+  plateNumber: string;
+  status: ScooterStatus;
+  latitude: number | null;
+  longitude: number | null;
+  lastSeen: string | null;
+  activeBookingReference: string | null;
+  riderName: string | null;
+  distanceFromBaseKm: number;
+}
+
+export interface TrailPoint {
+  latitude: number;
+  longitude: number;
+  speedKmh: number | null;
+  recordedAt: string;
+}
+
+export interface Tracking {
+  position: LivePosition;
+  trail: TrailPoint[];
+  /** Along the trail; for a booking, the rental so far. */
+  distanceKm: number;
 }

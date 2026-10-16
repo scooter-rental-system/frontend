@@ -1,60 +1,69 @@
-import { useState } from 'react';
-import { filterBookings, groupBookings, type HistoryFilter } from '../bookings';
-import { BookingList } from '../components/BookingCard';
-import { Empty, LoadError, Loading } from '../components/ui';
-import { useCustomerBookings } from '../useCustomerBookings';
+import { Link } from 'react-router-dom';
+import { api } from '../api';
+import { Empty, ErrorAlert, Loading, StatusBadge } from '../components/ui';
+import { dateTime, humanize, money } from '../format';
+import { useLoad } from '../hooks';
+import type { Booking } from '../types';
 
-const FILTERS: { value: HistoryFilter; label: string }[] = [
-  { value: 'ALL',       label: 'All' },
-  { value: 'ACTIVE',    label: 'Active' },
-  { value: 'COMPLETED', label: 'Completed' },
-  { value: 'CANCELLED', label: 'Cancelled' },
-];
-
-const EMPTY_MESSAGE: Record<HistoryFilter, string> = {
-  ALL:       "You haven't made any bookings yet.",
-  ACTIVE:    'You have no active or upcoming reservations.',
-  COMPLETED: 'You have no completed rentals yet.',
-  CANCELLED: 'You have no cancelled bookings.',
-};
-
-/** Booking history (FE-004): every booking of the signed-in customer, filterable by status. */
 export default function MyBookings() {
-  const { data, error, loading, reload } = useCustomerBookings();
-  const [filter, setFilter] = useState<HistoryFilter>('ALL');
-
-  // Active reservations first (soonest start), then history (most recent first).
-  const shown = data
-    ? (() => {
-        const { active, history } = groupBookings(data);
-        return filterBookings([...active, ...history], filter);
-      })()
-    : null;
+  const { data, error, loading } = useLoad(() => api.get<Booking[]>('/bookings'));
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1>My bookings</h1>
-        <p className="muted">Every booking you&apos;ve made, with its current status.</p>
-      </div>
-
-      <div className="filter-tabs" role="group" aria-label="Filter bookings">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            className={`small ${filter === f.value ? 'is-active' : ''}`}
-            aria-pressed={filter === f.value}
-            onClick={() => setFilter(f.value)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {loading && !data && <Loading what="Loading your bookings" />}
-      {error && <LoadError error={`We couldn't load your bookings. ${error}`} onRetry={reload} />}
-      {shown && (shown.length === 0 ? <Empty>{EMPTY_MESSAGE[filter]}</Empty> : <BookingList bookings={shown} />)}
+    <div className="stack">
+      <h1>My bookings</h1>
+      <ErrorAlert error={error} />
+      {loading && <Loading />}
+      {data?.length === 0 && (
+        <Empty>
+          No bookings yet. <Link to="/">Find a scooter</Link>.
+        </Empty>
+      )}
+      {data && data.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Scooter</th>
+                <th>Started</th>
+                <th>Status</th>
+                <th className="num">Total</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.reference}</td>
+                  <td>
+                    {b.scooter.model}
+                    <div className="muted small">{b.scooter.plateNumber}</div>
+                  </td>
+                  <td>{dateTime(b.startTime)}</td>
+                  <td>
+                    <StatusBadge status={b.status} />
+                    <div className="muted small">{humanize(b.stage)}</div>
+                  </td>
+                  <td className="num">
+                    {b.totalCost != null ? money(b.totalCost) : b.payment ? <span className="muted">paid {money(b.payment.amount)}</span> : '—'}
+                  </td>
+                  <td className="right">
+                    {b.status === 'PENDING' ? (
+                      <Link className="btn small primary" to={`/bookings/${b.id}/checkout`}>
+                        Complete
+                      </Link>
+                    ) : (
+                      <Link className="btn small" to={`/bookings/${b.id}`}>
+                        View
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
