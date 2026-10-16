@@ -1,13 +1,31 @@
 import { ReactNode } from 'react';
 import { STAGE_LABEL } from '../bookings';
+import { humanize } from '../format';
 import type { BookingStage, BookingStatus } from '../types';
 
-// ─── ErrorAlert ──────────────────────────────────────────────────────────────
+const STATUS_TONE: Record<string, string> = {
+  AVAILABLE: 'green',
+  PAID: 'green',
+  SUCCESS: 'green',
+  DONE: 'green',
+  SENT: 'green',
+  ACTIVE: 'blue',
+  RENTED: 'blue',
+  IN_PROGRESS: 'blue',
+  PENDING: 'amber',
+  MAINTENANCE: 'amber',
+  SCHEDULED: 'amber',
+  ISSUED: 'amber',
+  CANCELLED: 'red',
+  FAILED: 'red',
+  REFUNDED: 'red',
+  VOID: 'red',
+};
 
-/**
- * Renders a red alert box when `error` is a non-empty string.
- * Renders nothing when error is null / undefined.
- */
+export function StatusBadge({ status }: { status: string }) {
+  return <span className={`badge ${STATUS_TONE[status] ?? ''}`}>{humanize(status)}</span>;
+}
+
 export function ErrorAlert({ error }: { error: string | null | undefined }) {
   if (!error) return null;
   return (
@@ -17,29 +35,18 @@ export function ErrorAlert({ error }: { error: string | null | undefined }) {
   );
 }
 
-// ─── Loading ─────────────────────────────────────────────────────────────────
-
 export function Loading({ what = 'Loading' }: { what?: string }) {
   return <p className="muted">{what}…</p>;
 }
 
-// ─── FieldError ──────────────────────────────────────────────────────────────
-
-/**
- * Small inline error message under a form field.
- */
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <span className="field-error">{message}</span>;
 }
 
-// ─── Empty ───────────────────────────────────────────────────────────────────
-
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="muted">{children}</p>;
 }
-
-// ─── StageBadge ──────────────────────────────────────────────────────────────
 
 const STAGE_TONE: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'amber',
@@ -55,27 +62,22 @@ const STAGE_TONE: Record<BookingStage, string> = {
 /** Shows the server-derived booking stage, with the SDS status as a tooltip. */
 export function StageBadge({ stage, status }: { stage: BookingStage; status: BookingStatus }) {
   return (
-    <span className={`badge ${STAGE_TONE[stage]}`} title={`Booking status: ${status}`}>
+    <span className={`badge ${STAGE_TONE[stage] ?? ''}`} title={`Booking status: ${status}`}>
       {STAGE_LABEL[stage]}
     </span>
   );
 }
 
-// ─── Stat ────────────────────────────────────────────────────────────────────
-
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="stat">
-      <div className="stat__label">{label}</div>
-      <div className="stat__value">{value}</div>
+      <div className="stat__label label">{label}</div>
+      <div className="stat__value value">{value}</div>
       {hint && <div className="muted small">{hint}</div>}
     </div>
   );
 }
 
-// ─── DetailRow ───────────────────────────────────────────────────────────────
-
-/** One label/value pair inside a <dl>. */
 export function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="detail-row">
@@ -85,9 +87,6 @@ export function DetailRow({ label, children }: { label: string; children: ReactN
   );
 }
 
-// ─── LoadError ───────────────────────────────────────────────────────────────
-
-/** Error alert with a retry button, for a failed data load. */
 export function LoadError({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="load-error">
@@ -95,6 +94,14 @@ export function LoadError({ error, onRetry }: { error: string; onRetry: () => vo
       <button type="button" className="small" onClick={onRetry}>
         Try again
       </button>
+    </div>
+  );
+}
+
+export function ScooterThumb({ imageUrl, alt }: { imageUrl: string | null; alt: string }) {
+  return (
+    <div className="scooter-thumb" aria-hidden={!imageUrl}>
+      {imageUrl ? <img src={imageUrl} alt={alt} /> : '🛵'}
     </div>
   );
 }
