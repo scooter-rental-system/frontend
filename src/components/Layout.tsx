@@ -17,21 +17,17 @@ export function Layout() {
           </Link>
 
           <nav className="nav">
-            <NavLink to="/" end>Home</NavLink>
-            {user?.role === 'USER' && (
-              <>
-                <NavLink to="/dashboard">Dashboard</NavLink>
-                <NavLink to="/bookings">My Bookings</NavLink>
-                <NavLink to="/profile">Profile</NavLink>
-              </>
-            )}
+            <NavLink to="/" end>Scooters</NavLink>
+            {user && <NavLink to="/bookings">My Bookings</NavLink>}
             {isAdmin(user?.role) && <NavLink to="/admin">Admin</NavLink>}
           </nav>
 
           <div className="topbar-right">
             {user ? (
               <>
-                <span className="muted small">{user.fullName}</span>
+                <NavLink to="/profile" className="muted small">
+                  {user.fullName}
+                </NavLink>
                 <button
                   className="small"
                   id="btn-logout"
