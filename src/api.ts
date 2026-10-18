@@ -99,3 +99,18 @@ export const api = {
   patch:  <T>(path: string)                  => request<T>('PATCH',  path),
   delete: <T>(path: string)                  => request<T>('DELETE', path),
 };
+
+/** Downloads an authenticated file (e.g. CSV export). */
+export async function download(path: string, filename: string) {
+  const token = getToken();
+  const res = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new ApiError(res.status, `Download failed (${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+

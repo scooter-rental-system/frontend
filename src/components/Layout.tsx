@@ -102,3 +102,34 @@ export function RequireAuth({
 
   return children;
 }
+
+const ADMIN_LINKS = [
+  ['/admin', 'Dashboard'],
+  ['/admin/bookings', 'Bookings'],
+  ['/admin/fleet', 'Fleet'],
+  ['/admin/gps', 'Live GPS'],
+  ['/admin/maintenance', 'Maintenance'],
+  ['/admin/gear', 'Camping gear'],
+  ['/admin/billing', 'Payments & billing'],
+  ['/admin/customers', 'Customers'],
+  ['/admin/notifications', 'Notifications'],
+  ['/admin/reports', 'Reports'],
+] as const;
+
+export function AdminLayout() {
+  return (
+    <div className="admin-shell">
+      <aside className="sidebar">
+        {ADMIN_LINKS.map(([to, label]) => (
+          <NavLink key={to} to={to} end={to === '/admin'}>
+            {label}
+          </NavLink>
+        ))}
+      </aside>
+      <section>
+        <Outlet />
+      </section>
+    </div>
+  );
+}
+
