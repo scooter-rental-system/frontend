@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { Layout, RequireAuth } from './components/Layout';
+import { AdminLayout, Layout, RequireAuth } from './components/Layout';
 import { Login, Register } from './pages/Auth';
 import BookingDetail from './pages/BookingDetail';
 import Checkout from './pages/Checkout';
@@ -8,6 +8,14 @@ import Home from './pages/Home';
 import MyBookings from './pages/MyBookings';
 import Profile from './pages/Profile';
 import ScooterBook from './pages/ScooterBook';
+import Billing from './pages/admin/Billing';
+import Bookings from './pages/admin/Bookings';
+import AdminDashboard from './pages/admin/Dashboard';
+import { Fleet, Gear } from './pages/admin/Fleet';
+import Gps from './pages/admin/Gps';
+import Maintenance from './pages/admin/Maintenance';
+import { Customers, NotificationsAdmin } from './pages/admin/People';
+import Reports from './pages/admin/Reports';
 
 export default function App() {
   return (
@@ -26,15 +34,19 @@ export default function App() {
         <Route path="bookings/:id/checkout" element={<RequireAuth customer><Checkout /></RequireAuth>} />
         <Route path="profile" element={<RequireAuth customer><Profile /></RequireAuth>} />
 
-        {/* Admin placeholder */}
-        <Route
-          path="admin"
-          element={
-            <RequireAuth admin>
-              <p>Admin Dashboard — coming soon</p>
-            </RequireAuth>
-          }
-        />
+        {/* Admin */}
+        <Route path="admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="bookings" element={<Bookings />} />
+          <Route path="fleet" element={<Fleet />} />
+          <Route path="gps" element={<Gps />} />
+          <Route path="maintenance" element={<Maintenance />} />
+          <Route path="gear" element={<Gear />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="notifications" element={<NotificationsAdmin />} />
+          <Route path="reports" element={<Reports />} />
+        </Route>
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
