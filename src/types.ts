@@ -1,12 +1,9 @@
-// ─── User & Auth ────────────────────────────────────────────────────────────
-
-/** User roles supported by the backend. SUPER_ADMIN has all ADMIN rights. */
+// SDS 3.2 UserRole. SUPER_ADMIN has every ADMIN right.
 export type Role = 'USER' | 'ADMIN' | 'SUPER_ADMIN';
 
-export const isAdmin = (role: Role | undefined) =>
-  role === 'ADMIN' || role === 'SUPER_ADMIN';
+export const isAdmin = (role: Role | undefined) => role === 'ADMIN' || role === 'SUPER_ADMIN';
 
-/** Authenticated user entity returned by the backend. */
+// Entity ids are UUIDs, sent as strings (SDS 2.2).
 export interface User {
   id: string;
   email: string;
@@ -20,13 +17,10 @@ export interface User {
   createdAt: string;
 }
 
-/** Response from POST /api/auth/login and POST /api/auth/register. */
 export interface AuthResponse {
   token: string;
   user: User;
 }
-
-// ─── Registration form fields ────────────────────────────────────────────────
 
 export interface RegisterFormData {
   fullName: string;
@@ -38,8 +32,6 @@ export interface RegisterFormData {
   drivingLicenseNo: string;
 }
 
-// ─── Scooters & Gear ─────────────────────────────────────────────────────────
-
 export type ScooterStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE';
 
 export interface Scooter {
@@ -48,39 +40,50 @@ export interface Scooter {
   model: string;
   plateNumber: string;
   engineCc: number | null;
-  description: string;
-  imageUrl: string | null;
+  status: ScooterStatus;
+  /** SDS 2.2: LKR per hour and per km. */
   hourlyRate: number;
   perKmRate: number;
+  /** SDS 2.2: cumulative km (decimal). */
+  totalMileage: number;
+  latitude: number | null;
+  longitude: number | null;
+  imageUrl: string | null;
+  description: string | null;
+  /** Soft-deleted: removed from the fleet (SDS 8.3). */
+  deleted: boolean;
+  /** Bookable right now (not rented, in maintenance or held by another booking). */
   available: boolean;
-  status: ScooterStatus;
 }
+
+export type GearCategory = 'CAMPING' | 'SAFETY' | 'LUGGAGE' | 'ACCESSORY';
 
 export interface GearItem {
   id: string;
   name: string;
-  description: string;
-  category: string;
+  category: GearCategory;
+  description: string | null;
   dailyRate: number;
   totalQuantity: number;
   available: number | null;
+  active: boolean;
 }
 
-/** Price estimate returned by POST /api/bookings/quote. */
+/** Rates and the initial charge (1 hour + 1 gear day); the total is known when the rental ends. */
 export interface Quote {
+  scooterId: string;
+  currency: string;
   hourlyRate: number;
   perKmRate: number;
-  gear: { gearItemId: string; name: string; quantity: number; lineTotal: number }[];
-  /** 1 started hour + 1 started day of gear: paid now. */
+  gear: { gearItemId: string; name: string; quantity: number; dailyRate: number; days: number; lineTotal: number }[];
+  gearPerDay: number;
   initialCharge: number;
 }
 
-// ─── Bookings ────────────────────────────────────────────────────────────────
-
-/** SDS 3.2: PENDING → ACTIVE → COMPLETED, or CANCELLED. */
+// SDS 3.2. Open-ended rentals: ACTIVE from successful payment until the customer ends the rental.
 export type BookingStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
-/** Display stage derived on the server from status, payment and times (BookingDtos.Stage). */
+/** Display stage derived on the server from status, payment and times. */
 export type BookingStage =
   | 'AWAITING_PAYMENT'
   | 'PAYMENT_FAILED'
@@ -93,7 +96,6 @@ export type BookingStage =
 
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
-/** Mirrors the backend's BookingDtos.BookingResponse. */
 export interface Booking {
   id: string;
   reference: string;
@@ -198,6 +200,38 @@ export interface Invoice {
   lines: { description: string; quantity: number; unitPrice: number; amount: number }[];
 }
 
+export interface Notification {
+  id: string;
+  subject: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationLog {
+  id: string;
+  recipient: string;
+  channel: 'IN_APP' | 'EMAIL' | 'SMS';
+  subject: string;
+  status: 'SENT' | 'FAILED';
+  createdAt: string;
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  scooterId: string;
+  scooterCode: string;
+  scooterModel: string;
+  type: 'SERVICE' | 'REPAIR' | 'INSPECTION';
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+  description: string;
+  cost: number | null;
+  scheduledDate: string | null;
+  completedDate: string | null;
+  odometerKm: number | null;
+  createdAt: string;
+}
+
 export interface LivePosition {
   scooterId: string;
   code: string;
@@ -224,4 +258,47 @@ export interface Tracking {
   trail: TrailPoint[];
   /** Along the trail; for a booking, the rental so far. */
   distanceKm: number;
+}
+
+export interface Dashboard {
+  fleetByStatus: Record<ScooterStatus, number>;
+  activeRentals: number;
+  upcoming: number;
+  balanceDue: number;
+  pendingPayment: number;
+  openMaintenance: number;
+  customers: number;
+  revenueLast30Days: number;
+  currency: string;
+}
+
+export interface ReportSummary {
+  from: string;
+  to: string;
+  currency: string;
+  revenue: number;
+  refunds: number;
+  outstandingBalance: number;
+  maintenanceCost: number;
+  bookingsCreated: number;
+  bookingsByStatus: Record<BookingStatus, number>;
+  newCustomers: number;
+  fleetUtilizationPct: number;
+  revenueByDay: { date: string; amount: number }[];
+  scooters: { scooterId: string; code: string; model: string; bookings: number; rentedHours: number; revenue: number }[];
+  gear: { name: string; units: number }[];
+}
+
+/** SDS 4.3 / 5.2: a crossing above 60 km/h. */
+export interface SpeedViolation {
+  id: string;
+  scooterCode: string;
+  scooterModel: string;
+  plateNumber: string;
+  bookingReference: string | null;
+  riderName: string | null;
+  speedKmh: number;
+  latitude: number;
+  longitude: number;
+  recordedAt: string;
 }
