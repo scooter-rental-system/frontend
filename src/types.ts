@@ -26,11 +26,17 @@ export interface RegisterFormData {
   fullName: string;
   email: string;
   phone: string;
+  /** Sri Lankan NIC — required by backend (BE-027). */
+  nicNumber: string;
   password: string;
   country: string;
+  /** Passport / other ID — optional. */
   idDocumentNumber: string;
   drivingLicenseNo: string;
 }
+
+/** Frontend-only: confirm password is validated in the form and stripped before sending. */
+export type RegisterFormUI = RegisterFormData & { confirmPassword: string };
 
 export type ScooterStatus = 'AVAILABLE' | 'RENTED' | 'MAINTENANCE';
 
