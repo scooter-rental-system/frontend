@@ -228,10 +228,13 @@ export function Register() {
       case 'phone':
         return !form.phone ? 'Phone number is required' : '';
       case 'nicNumber':
-        return !form.nicNumber ? 'NIC number is required' : '';
+        if (!form.nicNumber) return 'NIC number is required';
+        if (form.nicNumber.length > 20) return 'NIC number must be 20 characters or fewer';
+        return '';
       case 'password':
-        if (!form.password)          return 'Password is required';
-        if (form.password.length < 8) return 'Password must be at least 8 characters';
+        if (!form.password)           return 'Password is required';
+        if (form.password.length < 8)  return 'Password must be at least 8 characters';
+        if (form.password.length > 72) return 'Password must be 72 characters or fewer';
         return '';
       case 'confirmPassword':
         if (!form.confirmPassword)               return 'Please confirm your password';
@@ -362,6 +365,7 @@ export function Register() {
                 id="reg-nicNumber"
                 autoComplete="off"
                 placeholder="e.g. 200012345678V"
+                maxLength={20}
                 value={form.nicNumber}
                 onChange={set('nicNumber')}
                 onBlur={blur('nicNumber')}
@@ -418,6 +422,7 @@ export function Register() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="Min 8 characters"
+                maxLength={72}
                 value={form.password}
                 onChange={set('password')}
                 onBlur={blur('password')}
@@ -438,6 +443,7 @@ export function Register() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="Repeat your password"
+                maxLength={72}
                 value={form.confirmPassword}
                 onChange={set('confirmPassword')}
                 onBlur={blur('confirmPassword')}
