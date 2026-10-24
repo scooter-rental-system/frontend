@@ -1,6 +1,70 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { type Theme, useTheme } from '../theme';
 import { isAdmin } from '../types';
+
+// ─── Theme Toggle ─────────────────────────────────────────────────────────────
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
+  { value: 'light',  label: 'Light',  icon: '☀️' },
+  { value: 'dark',   label: 'Dark',   icon: '🌙' },
+  { value: 'system', label: 'System', icon: '💻' },
+];
+
+function ThemeToggle() {
+  const { theme, resolved, setTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when user clicks outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const icon = resolved === 'dark' ? '🌙' : '☀️';
+
+  return (
+    <div className="theme-menu-wrap" ref={wrapRef}>
+      <button
+        id="btn-theme-toggle"
+        className="theme-toggle"
+        aria-label="Toggle colour theme"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        title={`Theme: ${theme}`}
+      >
+        {icon}
+      </button>
+
+      {open && (
+        <div className="theme-menu" role="menu">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              role="menuitem"
+              className={theme === opt.value ? 'is-active' : ''}
+              onClick={() => {
+                setTheme(opt.value);
+                setOpen(false);
+              }}
+            >
+              <span aria-hidden>{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Main Layout ─────────────────────────────────────────────────────────────
 
@@ -23,6 +87,7 @@ export function Layout() {
           </nav>
 
           <div className="topbar-right">
+            <ThemeToggle />
             {user ? (
               <>
                 <NavLink to="/profile" className="muted small">

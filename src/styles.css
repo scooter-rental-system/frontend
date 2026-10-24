@@ -43,9 +43,15 @@
   --shadow: 0 1px 4px hsla(220 25% 12% / 0.06), 0 4px 16px hsla(220 25% 12% / 0.08);
 }
 
-/* ─── Dark mode ─────────────────────────────────────────────── */
+/* ─── Dark mode ─────────────────────────────────────────────────────────────
+   Applies when:
+     a) OS prefers dark (system mode)    → @media
+     b) User explicitly picked dark      → [data-theme="dark"] on <html>
+   The [data-theme="dark"] selector has higher specificity so it always wins
+   over a light-mode OS preference when the user manually switches.
+   ─────────────────────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --brand:       hsl(152 55% 48%);
     --brand-dark:  hsl(152 55% 38%);
     --brand-soft:  hsl(152 30% 15%);
@@ -66,6 +72,52 @@
 
     --shadow: 0 1px 4px hsla(0 0% 0% / 0.3), 0 4px 16px hsla(0 0% 0% / 0.4);
   }
+}
+
+/* Explicit dark: user manually chose dark (even if OS is light) */
+[data-theme="dark"] {
+  --brand:       hsl(152 55% 48%);
+  --brand-dark:  hsl(152 55% 38%);
+  --brand-soft:  hsl(152 30% 15%);
+  --chart-1:     #35a06a;
+
+  --accent-soft: hsl(37 60% 16%);
+  --warn-soft:   hsl(37 50% 18%);
+  --danger-soft: hsl(0 40% 16%);
+  --info-soft:   hsl(210 40% 16%);
+
+  --bg:        hsl(220 18% 9%);
+  --surface:   hsl(220 16% 13%);
+  --surface-2: hsl(220 14% 17%);
+  --border:    hsl(220 14% 22%);
+
+  --text:  hsl(220 20% 92%);
+  --muted: hsl(220 10% 55%);
+
+  --shadow: 0 1px 4px hsla(0 0% 0% / 0.3), 0 4px 16px hsla(0 0% 0% / 0.4);
+}
+
+/* Explicit light: force light even if OS is dark */
+[data-theme]:not([data-theme="dark"]) {
+  --brand:       hsl(152 60% 40%);
+  --brand-dark:  hsl(152 60% 30%);
+  --brand-soft:  hsl(152 50% 93%);
+  --chart-1:     #1f7a4d;
+
+  --accent-soft: hsl(37 90% 93%);
+  --warn-soft:   hsl(37 90% 93%);
+  --danger-soft: hsl(0 68% 95%);
+  --info-soft:   hsl(210 80% 95%);
+
+  --bg:        hsl(220 20% 97%);
+  --surface:   #ffffff;
+  --surface-2: hsl(220 15% 95%);
+  --border:    hsl(220 12% 88%);
+
+  --text:  hsl(220 25% 12%);
+  --muted: hsl(220 12% 50%);
+
+  --shadow: 0 1px 4px hsla(220 25% 12% / 0.06), 0 4px 16px hsla(220 25% 12% / 0.08);
 }
 
 /* ─── Reset & base ──────────────────────────────────────────── */
@@ -532,9 +584,10 @@ input::placeholder { color: var(--muted); opacity: 0.7; }
 .badge.amber { background: var(--accent-soft); color: hsl(37 90% 38%); }
 .badge.red   { background: var(--danger-soft); color: var(--danger); }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark), (html[data-theme="dark"]) {
   .badge.amber { color: var(--accent); }
 }
+[data-theme="dark"] .badge.amber { color: var(--accent); }
 
 .booking-list {
   list-style: none;
@@ -568,9 +621,10 @@ input::placeholder { color: var(--muted); opacity: 0.7; }
 
 .booking-card__action { color: hsl(37 90% 38%); font-weight: 500; }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark), (html[data-theme="dark"]) {
   .booking-card__action { color: var(--accent); }
 }
+[data-theme="dark"] .booking-card__action { color: var(--accent); }
 
 .booking-card__side {
   display: flex;
@@ -799,3 +853,80 @@ tr:last-child td {
   margin-left: 4px;
 }
 
+/* ─── Theme toggle button ───────────────────────────────────────────────────── */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+  transform: rotate(20deg);
+  box-shadow: 0 0 0 3px hsla(152 60% 40% / 0.12);
+}
+
+.theme-toggle:active {
+  transform: rotate(0deg) scale(0.92);
+}
+
+/* Tooltip wrapper for the 3-way theme switcher dropdown */
+.theme-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  z-index: 200;
+  min-width: 140px;
+  animation: fadeUp 0.15s ease;
+}
+
+.theme-menu button {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  border: none;
+  border-radius: 0;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  background: transparent;
+  color: var(--text);
+  transition: background 0.12s;
+}
+
+.theme-menu button:hover {
+  background: var(--surface-2);
+}
+
+.theme-menu button.is-active {
+  color: var(--brand);
+  font-weight: 600;
+  background: var(--brand-soft);
+}
+
+.theme-menu button + button {
+  border-top: 1px solid var(--border);
+}
