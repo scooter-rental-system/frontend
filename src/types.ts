@@ -173,6 +173,14 @@ export interface Payment {
   createdAt: string;
 }
 
+/** GET /api/payments/config. The publishable key is public by design; secret keys never reach the browser. */
+export interface PaymentConfig {
+  available: boolean;
+  provider: string | null;
+  publishableKey: string | null;
+  currency: string;
+}
+
 /** What the browser needs to confirm a payment with the provider (Stripe PaymentIntent shape). */
 export interface PaymentIntent {
   paymentId: string;

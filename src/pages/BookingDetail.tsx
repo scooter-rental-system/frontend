@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { CardPayment } from '../components/CardPayment';
+import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
 import { ErrorAlert, Loading, Stat, StatusBadge } from '../components/ui';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
+import {
+  interpretRedirectStatus,
+  isSettled,
+  PAYMENT_STILL_CONFIRMING,
+  PAYMENT_SUBMITTED,
+  STRIPE_RETURN_PARAMS,
+  waitForBackend,
+  type PaymentPurpose,
+} from '../payments';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
 
@@ -22,6 +31,50 @@ const STAGE_TEXT: Record<BookingStage, string> = {
   REFUNDED: 'Cancelled · refunded',
 };
 
+/**
+ * Back from a Stripe redirect (some card authentications leave the page): Stripe adds redirect_status and the
+ * intent's id and client secret to the URL. They are removed straight away; the page then waits for the backend,
+ * which hears the result from Stripe's webhook, before showing the payment as done.
+ */
+function usePaymentReturn(id: string, setBooking: (b: Booking) => void, reloadInvoices: () => void) {
+  const [params, setParams] = useSearchParams();
+  const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (handled.current) return;
+    const outcome = interpretRedirectStatus(params.get('redirect_status'));
+    if (!outcome) return;
+    handled.current = true;
+    const purpose: PaymentPurpose = params.get('payment') === 'balance' ? 'balance' : 'initial';
+    const next = new URLSearchParams(params);
+    STRIPE_RETURN_PARAMS.forEach((k) => next.delete(k));
+    setParams(next, { replace: true });
+    if (!outcome.submitted) {
+      setNotice({ text: outcome.message, error: true });
+      return;
+    }
+    setNotice({ text: PAYMENT_SUBMITTED });
+    waitForBackend(() => api.get<Booking>(`/bookings/${id}`), (b) => isSettled(b, purpose))
+      .then(({ settled, value }) => {
+        setBooking(value);
+        reloadInvoices();
+        if (!settled) {
+          setNotice({ text: PAYMENT_STILL_CONFIRMING });
+        } else if (purpose === 'initial') {
+          setNotice(null);
+          next.set('paid', '1');
+          setParams(next, { replace: true });
+        } else {
+          setNotice({ text: 'Balance paid. Thank you!' });
+        }
+      })
+      .catch(() => setNotice({ text: PAYMENT_STILL_CONFIRMING }));
+  }, [id, params, setParams, setBooking, reloadInvoices]);
+
+  return notice;
+}
+
 export default function BookingDetail() {
   const { id } = useParams();
   const [params] = useSearchParams();
@@ -35,6 +88,7 @@ export default function BookingDetail() {
   );
   const cancel = useAction();
   const end = useAction();
+  const paymentReturn = usePaymentReturn(id!, booking.setData, invoices.reload);
 
   if (booking.loading) return <Loading />;
   if (!booking.data) return <ErrorAlert error={booking.error} />;
@@ -65,7 +119,12 @@ export default function BookingDetail() {
   return (
     <div className="stack">
       {params.get('paid') && b.status === 'ACTIVE' && (
-        <div className="alert success">Payment received. Your scooter is booked! A confirmation has been sent to you.</div>
+        <div className="alert success">Payment received. Your scooter is booked!</div>
+      )}
+      {paymentReturn && (
+        <div className={`alert ${paymentReturn.error ? '' : 'info'}`} role={paymentReturn.error ? 'alert' : 'status'}>
+          {paymentReturn.text}
+        </div>
       )}
       <div className="row between">
         <div>
@@ -200,6 +259,8 @@ function BalanceDue({
   onPaid: () => void;
 }) {
   const due = b.payment?.balanceDue ?? 0;
+  // The balance PaymentIntent is created only when the customer chooses to pay online, not on every visit.
+  const [payOnline, setPayOnline] = useState(false);
   return (
     <div className="card stack">
       <h2>Remaining balance due</h2>
@@ -208,15 +269,25 @@ function BalanceDue({
         {b.payment?.failureReason ? `: ${b.payment.failureReason}` : ''}. The rental stays open until it is paid.
       </div>
       <div className="row">
-        <button onClick={onRetry} disabled={retrying}>
+        <button onClick={onRetry} disabled={retrying || payOnline}>
           {retrying ? 'Retrying…' : 'Retry saved card'}
         </button>
+        {isOwner && !payOnline && (
+          <button className="primary" onClick={() => setPayOnline(true)} disabled={retrying}>
+            Pay with another card
+          </button>
+        )}
       </div>
-      {isOwner && (
-        <CardPayment
+      {isOwner && payOnline && (
+        <StripePayment
+          bookingId={b.id}
+          purpose="balance"
           amount={due}
+          billingName={b.customer.fullName}
+          billingEmail={b.customer.email}
           createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/balance-intent`)}
-          onPaid={onPaid}
+          reload={() => api.get<Booking>(`/bookings/${b.id}`)}
+          onSettled={onPaid}
         />
       )}
     </div>

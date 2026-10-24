@@ -5,7 +5,31 @@ import InvoiceView from '../../components/InvoiceView';
 import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { date, dateTime, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
+import { paymentSetup, PAYMENTS_UNAVAILABLE, stripeMode } from '../../payments';
+import { loadPaymentConfig } from '../../stripe';
 import type { Invoice, Payment } from '../../types';
+
+/** The card payment provider as the backend reports it (GET /api/payments/config); no keys are shown. */
+function PaymentProviderStatus() {
+  const config = useLoad(loadPaymentConfig);
+  if (config.loading) return null;
+  const setup = paymentSetup(config.data);
+  if (!setup.ready) {
+    return (
+      <div className="alert small" role="status">
+        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay for bookings.
+      </div>
+    );
+  }
+  const mode = stripeMode(setup.publishableKey);
+  return (
+    <div className="alert info small">
+      Card payments: <strong>Stripe</strong>
+      {mode && <> ({mode === 'test' ? 'test mode: no real money moves' : 'live mode'})</>}, in {setup.currency}. Card
+      details are entered on Stripe&apos;s secure form and never reach this system.
+    </div>
+  );
+}
 
 export default function Billing() {
   const [tab, setTab] = useState<'payments' | 'invoices'>('payments');
@@ -22,10 +46,7 @@ export default function Billing() {
   return (
     <div className="stack">
       <h1>Payments & billing</h1>
-      <div className="alert info small">
-        Payment provider: <strong>mock (test mode)</strong>, Stripe-shaped: one payment per booking, card details never
-        reach this system. No real cards are charged.
-      </div>
+      <PaymentProviderStatus />
       <div className="row">
         <button className={tab === 'payments' ? 'primary' : ''} onClick={() => setTab('payments')}>
           Payments
