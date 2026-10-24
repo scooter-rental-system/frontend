@@ -119,6 +119,56 @@ export async function waitForBackend<T>(
   return { settled: settled(value), value };
 }
 
+export type PaymentResult =
+  /** The backend has recorded the payment. */
+  | { status: 'paid'; booking: Booking }
+  /** Submitted to Stripe, but the backend has not heard back yet (webhook still on its way). */
+  | { status: 'pending' }
+  /** Not submitted: the customer can correct the details or use another card. */
+  | { status: 'failed'; message: string };
+
+/** Reloads the booking until the backend has recorded the payment for `purpose`. */
+export async function awaitBackendRecord(
+  reload: () => Promise<Booking>,
+  purpose: PaymentPurpose,
+  wait?: WaitOptions,
+): Promise<PaymentResult> {
+  try {
+    const { settled, value } = await waitForBackend(reload, (b) => isSettled(b, purpose), wait);
+    return settled ? { status: 'paid', booking: value } : { status: 'pending' };
+  } catch {
+    return { status: 'pending' }; // submitted to Stripe; only our reload failed
+  }
+}
+
+/**
+ * Confirms with Stripe (`confirm` wraps stripe.confirmPayment), then waits for the backend. A Stripe.js success
+ * alone never counts as paid.
+ */
+export async function confirmAndAwaitBackend({
+  confirm,
+  reload,
+  purpose,
+  onSubmitted,
+  wait,
+}: {
+  confirm: () => Promise<ConfirmResult>;
+  reload: () => Promise<Booking>;
+  purpose: PaymentPurpose;
+  onSubmitted?: () => void;
+  wait?: WaitOptions;
+}): Promise<PaymentResult> {
+  let outcome: ConfirmOutcome;
+  try {
+    outcome = interpretConfirmation(await confirm());
+  } catch {
+    outcome = { submitted: false, message: GENERIC_FAILURE };
+  }
+  if (!outcome.submitted) return { status: 'failed', message: outcome.message };
+  onSubmitted?.();
+  return awaitBackendRecord(reload, purpose, wait);
+}
+
 /**
  * Runs at most one call at a time: a second call while one is in flight gets the same promise instead of
  * starting another (no double submission, no second PaymentIntent).

@@ -9,12 +9,11 @@ import { ErrorAlert, Loading, Stat, StatusBadge } from '../components/ui';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
 import {
+  awaitBackendRecord,
   interpretRedirectStatus,
-  isSettled,
   PAYMENT_STILL_CONFIRMING,
   PAYMENT_SUBMITTED,
   STRIPE_RETURN_PARAMS,
-  waitForBackend,
   type PaymentPurpose,
 } from '../payments';
 import { isAdmin } from '../types';
@@ -55,21 +54,21 @@ function usePaymentReturn(id: string, setBooking: (b: Booking) => void, reloadIn
       return;
     }
     setNotice({ text: PAYMENT_SUBMITTED });
-    waitForBackend(() => api.get<Booking>(`/bookings/${id}`), (b) => isSettled(b, purpose))
-      .then(({ settled, value }) => {
-        setBooking(value);
-        reloadInvoices();
-        if (!settled) {
-          setNotice({ text: PAYMENT_STILL_CONFIRMING });
-        } else if (purpose === 'initial') {
-          setNotice(null);
-          next.set('paid', '1');
-          setParams(next, { replace: true });
-        } else {
-          setNotice({ text: 'Balance paid. Thank you!' });
-        }
-      })
-      .catch(() => setNotice({ text: PAYMENT_STILL_CONFIRMING }));
+    awaitBackendRecord(() => api.get<Booking>(`/bookings/${id}`), purpose).then((result) => {
+      if (result.status !== 'paid') {
+        setNotice({ text: PAYMENT_STILL_CONFIRMING });
+        return;
+      }
+      setBooking(result.booking);
+      reloadInvoices();
+      if (purpose === 'initial') {
+        setNotice(null);
+        next.set('paid', '1');
+        setParams(next, { replace: true });
+      } else {
+        setNotice({ text: 'Balance paid. Thank you!' });
+      }
+    });
   }, [id, params, setParams, setBooking, reloadInvoices]);
 
   return notice;

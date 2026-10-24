@@ -3,8 +3,8 @@ import type { Stripe } from '@stripe/stripe-js';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { money } from '../format';
 import {
-  interpretConfirmation,
-  isSettled,
+  awaitBackendRecord,
+  confirmAndAwaitBackend,
   PAYMENT_STILL_CONFIRMING,
   PAYMENT_SUBMITTED,
   PAYMENTS_UNAVAILABLE,
@@ -12,8 +12,8 @@ import {
   returnUrl,
   singleFlight,
   SUPPORTED_PROVIDER,
-  waitForBackend,
   type PaymentPurpose,
+  type PaymentResult,
 } from '../payments';
 import { loadPaymentConfig, stripeFor } from '../stripe';
 import { useTheme } from '../theme';
@@ -167,52 +167,54 @@ function PaymentForm({
   const [message, setMessage] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
 
-  /** Waits for the webhook to reach the backend; the backend, not Stripe.js, decides the payment is recorded. */
-  const awaitBackend = useCallback(async () => {
-    setPhase({ step: 'confirming' });
-    try {
-      const { settled, value } = await waitForBackend(reload, (b) => isSettled(b, purpose));
-      if (settled) {
-        onSettled(value);
-      } else {
+  const show = useCallback(
+    (result: PaymentResult) => {
+      if (result.status === 'paid') {
+        onSettled(result.booking);
+      } else if (result.status === 'pending') {
         setPhase({ step: 'pending' });
+      } else {
+        setMessage(result.message);
+        setPhase({ step: 'entry' });
       }
-    } catch {
-      setPhase({ step: 'pending' });
-    }
-  }, [reload, purpose, onSettled]);
+    },
+    [onSettled],
+  );
 
   // One confirmation at a time, however often the button is pressed. The guarded function is created once and
   // reads the current Stripe objects through a ref (they are null until Stripe.js has loaded).
-  const latest = useRef({ stripe, elements, awaitBackend });
-  latest.current = { stripe, elements, awaitBackend };
+  const latest = useRef({ stripe, elements, reload, show });
+  latest.current = { stripe, elements, reload, show };
   const confirmRef = useRef<(() => Promise<void>) | null>(null);
   confirmRef.current ??= singleFlight(async () => {
-    const { stripe, elements, awaitBackend } = latest.current;
+    const { stripe, elements, reload, show } = latest.current;
     if (!stripe || !elements) return;
     setMessage(null);
     setPhase({ step: 'submitting' });
-    const result = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: returnUrl(window.location.origin, bookingId, purpose) },
-      // Card payments stay on this page; Stripe redirects only if the card's authentication requires it.
-      redirect: 'if_required',
-    });
-    const outcome = interpretConfirmation(result);
-    if (!outcome.submitted) {
-      setMessage(outcome.message);
-      setPhase({ step: 'entry' });
-      return;
-    }
-    await awaitBackend();
+    show(
+      await confirmAndAwaitBackend({
+        confirm: () =>
+          stripe.confirmPayment({
+            elements,
+            confirmParams: { return_url: returnUrl(window.location.origin, bookingId, purpose) },
+            // Card payments stay on this page; Stripe redirects only if the card's authentication requires it.
+            redirect: 'if_required',
+          }),
+        reload,
+        purpose,
+        onSubmitted: () => setPhase({ step: 'confirming' }),
+      }),
+    );
   });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    confirmRef.current?.().catch(() => {
-      setMessage('The payment could not be completed. Please try again.');
-      setPhase({ step: 'entry' });
-    });
+    void confirmRef.current?.();
+  };
+
+  const checkAgain = async () => {
+    setPhase({ step: 'confirming' });
+    show(await awaitBackendRecord(reload, purpose));
   };
 
   if (phase.step === 'confirming') {
@@ -228,7 +230,7 @@ function PaymentForm({
         <div className="alert info" role="status">
           {PAYMENT_STILL_CONFIRMING}
         </div>
-        <button onClick={() => void awaitBackend()}>Check again</button>
+        <button onClick={() => void checkAgain()}>Check again</button>
       </div>
     );
   }
