@@ -18,6 +18,8 @@ const ICONS = {
   RENTED: icon('🛵', '#3b6fd1'),
   AVAILABLE: icon('🛵', '#1f7a4d'),
   MAINTENANCE: icon('🔧', '#e08a1e'),
+  /** Last known position, no recent report: drawn grey so it is not mistaken for a live one. */
+  STALE: icon('🛵', '#8a8f98'),
 };
 
 export interface MapMarker {

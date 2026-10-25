@@ -16,6 +16,8 @@ import {
   STRIPE_RETURN_PARAMS,
   type PaymentPurpose,
 } from '../payments';
+import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
+import { useRiderGps } from '../useRiderGps';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
 
@@ -235,7 +237,11 @@ export default function BookingDetail() {
           {contract.data && <div className="contract">{contract.data.termsText}</div>}
         </div>
 
-        {b.stage === 'IN_PROGRESS' ? <LiveTracking booking={b} /> : <PaymentCard booking={b} />}
+        {b.stage === 'IN_PROGRESS' ? (
+          <LiveTracking booking={b} reportLocation={shouldReportLocation(b, user?.id)} />
+        ) : (
+          <PaymentCard booking={b} />
+        )}
       </div>
 
       {b.stage === 'IN_PROGRESS' && <PaymentCard booking={b} />}
@@ -322,9 +328,11 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
   );
 }
 
-function LiveTracking({ booking: b }: { booking: Booking }) {
+function LiveTracking({ booking: b, reportLocation }: { booking: Booking; reportLocation: boolean }) {
   const [tracking, setTracking] = useState<Tracking | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The rider's own browser reports its real location, only for their rental in progress (shouldReportLocation).
+  const gps = useRiderGps(b.id, reportLocation);
 
   useEffect(() => {
     let cancelled = false;
@@ -354,20 +362,40 @@ function LiveTracking({ booking: b }: { booking: Booking }) {
     <div className="card stack">
       <div className="row between">
         <h2 style={{ margin: 0 }}>Your scooter</h2>
-        <span className="muted small">Last update {dateTime(p?.lastSeen)}</span>
+        <span className="muted small">
+          Last update {dateTime(p?.lastSeen)}
+          {p?.stale && ' · no recent location'}
+        </span>
       </div>
       <ErrorAlert error={error} />
+      {gps && (
+        <div className={`alert small ${gps === 'active' || gps === 'starting' ? 'info' : ''}`} role="status">
+          {GPS_STATUS_TEXT[gps]}
+          {isTrackingOff(gps) && ' Your rental continues; distance is billed from the location reports received.'}
+        </div>
+      )}
       <div className="stats" aria-live="polite">
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
         <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
-        <Stat label="Speed" value={last?.speedKmh != null ? `${Math.round(last.speedKmh)} km/h` : '—'} />
+        <Stat
+          label="Speed"
+          value={!p?.stale && last?.speedKmh != null ? `${Math.round(last.speedKmh)} km/h` : '—'}
+        />
         <Stat label="Estimated total" value={money(estimate)} hint="Final total when you end the rental" />
       </div>
       {p?.latitude != null && p.longitude != null && (
         <MapView
           center={[p.latitude, p.longitude]}
           zoom={14}
-          markers={[{ id: p.scooterId, lat: p.latitude, lng: p.longitude, kind: 'RENTED', popup: `${p.model} ${p.plateNumber}` }]}
+          markers={[
+            {
+              id: p.scooterId,
+              lat: p.latitude,
+              lng: p.longitude,
+              kind: p.stale ? 'STALE' : 'RENTED',
+              popup: `${p.model} ${p.plateNumber}${p.stale ? ' (last known position)' : ''}`,
+            },
+          ]}
           trail={tracking?.trail.map((t) => [t.latitude, t.longitude] as [number, number])}
         />
       )}
