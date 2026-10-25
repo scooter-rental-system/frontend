@@ -11,3 +11,10 @@ export const adminBookingPath = (id: string) => `/admin/bookings/${encodeURIComp
 
 /** A scooter's booking page (public). */
 export const scooterPath = (id: string) => `/scooters/${encodeURIComponent(id)}`;
+
+/** The checkout (agreement and payment) of an unpaid booking. */
+export const checkoutPath = (id: string) => `/bookings/${encodeURIComponent(id)}/checkout`;
+
+/** The page a booking card's action opens (see rental.ts cardAction). */
+export const bookingActionPath = (target: 'checkout' | 'booking', id: string) =>
+  target === 'checkout' ? checkoutPath(id) : bookingPath(id);

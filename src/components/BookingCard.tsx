@@ -1,6 +1,9 @@
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { needsAction } from '../bookings';
 import { dateTime, humanize, money } from '../format';
+import { cardAction } from '../rental';
+import { bookingActionPath } from '../routes';
 import type { Booking } from '../types';
 import { DetailRow, StageBadge } from './ui';
 
@@ -17,6 +20,7 @@ function amountLine(b: Booking): string {
 export function BookingCard({ booking: b }: { booking: Booking }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
+  const action = cardAction(b);
 
   return (
     <li className="booking-card">
@@ -36,16 +40,22 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
           )}
         </div>
         <div className="booking-card__side">
-          <span className="small">{amountLine(b)}</span>
-          <button
-            type="button"
-            className="small"
-            aria-expanded={open}
-            aria-controls={detailsId}
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? 'Hide details' : 'Details'}
-          </button>
+          <span className="small booking-card__amount">{amountLine(b)}</span>
+          <div className="booking-card__buttons">
+            <button
+              type="button"
+              className="small ghost"
+              aria-expanded={open}
+              aria-controls={detailsId}
+              onClick={() => setOpen((o) => !o)}
+            >
+              {open ? 'Hide details' : 'Details'}
+            </button>
+            <Link className={`btn small${action.primary ? ' primary' : ''}`} to={bookingActionPath(action.target, b.id)}>
+              {action.label}
+              <span className="sr-only"> for booking {b.reference}</span>
+            </Link>
+          </div>
         </div>
       </div>
 

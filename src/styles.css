@@ -1727,6 +1727,157 @@ fieldset.booking-fieldset { border: 1px solid var(--border); min-width: 0; }
 .stripe-container { min-width: 0; }
 .stripe-container:empty { display: none; }
 
+/* ─── Customer dashboard & bookings ─────────────────────────── */
+.pill-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* "Right now": the one booking that needs the customer, with its next action. */
+.right-now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-left: 4px solid var(--border-strong);
+}
+.right-now.is-riding   { border-left-color: var(--success); }
+.right-now.is-balance,
+.right-now.is-pay      { border-left-color: var(--warning); }
+.right-now.is-upcoming { border-left-color: var(--info); }
+.right-now__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; flex: 1 1 320px; }
+.right-now__body h3 { font-size: 1.25rem; }
+
+.dashboard-account {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .dashboard-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.dashboard-facts { display: flex; flex-direction: column; gap: var(--space-2); }
+.dashboard-facts div { display: flex; justify-content: space-between; gap: var(--space-3); }
+.dashboard-facts dt { color: var(--text-muted); }
+.dashboard-facts dd { font-weight: 700; }
+
+/* My Bookings filters: pressed-state buttons with counts. */
+.filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.filter-tabs button { min-height: 40px; }
+.filter-tabs button.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+}
+.filter-tabs__count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.booking-card__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+@media (max-width: 599px) {
+  .booking-card__side { flex-wrap: wrap; }
+  .booking-card__amount { flex-basis: 100%; }
+  .booking-card__buttons { flex: 1; }
+  .booking-card__buttons > * { flex: 1; }
+}
+.booking-card__amount { font-weight: 600; }
+
+/* ─── Booking detail ────────────────────────────────────────── */
+.booking-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+.booking-header__main { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; flex: 1 1 320px; }
+.booking-header__main h1 { font-size: 1.75rem; overflow-wrap: anywhere; }
+.booking-header__help { max-width: 60ch; }
+.booking-header__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.booking-header__end { min-height: 48px; padding: 0 24px; font-size: 1rem; }
+
+/* Reserved → Paid → In progress → Completed. */
+.timeline {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: var(--space-2);
+}
+.timeline__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.timeline__dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  font-size: 0.75rem;
+}
+.timeline__step.is-done { color: var(--success-text); background: var(--success-soft); border-color: transparent; }
+.timeline__step.is-done .timeline__dot { background: var(--success); border-color: var(--success); color: var(--surface); }
+.timeline__step.is-current { color: var(--text); border-color: var(--brand); font-weight: 700; }
+.timeline__step.is-current .timeline__dot { border-color: var(--brand); background: var(--brand-soft); }
+.timeline__step.is-stopped { color: var(--danger-text); background: var(--danger-soft); border-color: transparent; }
+.timeline__step.is-stopped .timeline__dot { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* A panel that needs the customer (balance due). */
+.action-panel { border-color: var(--warning); box-shadow: inset 4px 0 0 var(--warning), var(--shadow); }
+
+/* Live rental: status, map and tiles. */
+.live-rental { border-color: var(--success); box-shadow: inset 4px 0 0 var(--success), var(--shadow); }
+.live-rental__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.live-rental__head h2 { font-size: 1.375rem; }
+.live-rental__strip { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); }
+.live-rental__tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+
+.invoice__table { overflow-x: auto; }
+.invoice__table table { min-width: 420px; }
+
+/* ─── Notification panel extras ─────────────────────────────── */
+.notif-empty { padding: var(--space-5) var(--space-4); text-align: center; }
+.notif-empty__title { font-weight: 600; margin: 0 auto var(--space-1); }
+.notif-item__new {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
 /* ─── Small screens ─────────────────────────────────────────── */
 @media (max-width: 599px) {
   h1 { font-size: 1.75rem; }
@@ -1745,13 +1896,19 @@ fieldset.booking-fieldset { border: 1px solid var(--border); min-width: 0; }
   .load-error { flex-direction: column; align-items: stretch; }
 
   .notif-wrap { position: static; }
-  /* Anchored to the sticky header, so it sits under it at any width. */
+  /* A full-width sheet under the sticky header, scrolling inside itself. */
   .notif-panel {
     top: 100%;
-    left: var(--space-4);
-    right: var(--space-4);
+    left: 0;
+    right: 0;
     width: auto;
+    max-height: calc(100dvh - 64px);
+    border-radius: 0 0 var(--radius) var(--radius);
+    border-left: none;
+    border-right: none;
   }
+  .notif-item { padding: var(--space-4); min-height: 56px; }
+  .notif-head { padding: var(--space-3) var(--space-4); }
 }
 
 /* ─── Motion ────────────────────────────────────────────────── */
