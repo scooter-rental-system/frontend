@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react
 import { useAuth } from '../auth';
 import { type Theme, useTheme } from '../theme';
 import { isAdmin } from '../types';
+import { NotificationBell } from './NotificationBell';
 
 // ─── Theme Toggle ─────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export function Layout() {
           </nav>
 
           <div className="topbar-right">
+            {user && <NotificationBell />}
             <ThemeToggle />
             {user ? (
               <>
