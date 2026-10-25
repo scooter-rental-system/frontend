@@ -11,6 +11,17 @@
  *  after 2 minutes; every 10 s keeps the live view fresh and the billed route detailed without flooding it. */
 export const REPORT_INTERVAL_MS = 10_000;
 
+/**
+ * Location is reported only for the signed-in rider's own rental in progress: the backend's "under way" rule
+ * (ACTIVE, started, not ended) is the IN_PROGRESS stage. Never before the start, after the end or on cancellation.
+ */
+export function shouldReportLocation(
+  booking: { stage: string; customer: { id: string } },
+  signedInUserId: string | undefined,
+): boolean {
+  return booking.stage === 'IN_PROGRESS' && signedInUserId !== undefined && booking.customer.id === signedInUserId;
+}
+
 /** What the backend accepts (GpsDtos.LocationRequest). No user id, scooter id or timestamp. */
 export interface LocationReport {
   latitude: number;

@@ -16,7 +16,7 @@ import {
   STRIPE_RETURN_PARAMS,
   type PaymentPurpose,
 } from '../payments';
-import { GPS_STATUS_TEXT, isTrackingOff } from '../gps';
+import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
 import { useRiderGps } from '../useRiderGps';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
@@ -237,7 +237,11 @@ export default function BookingDetail() {
           {contract.data && <div className="contract">{contract.data.termsText}</div>}
         </div>
 
-        {b.stage === 'IN_PROGRESS' ? <LiveTracking booking={b} isOwner={isOwner} /> : <PaymentCard booking={b} />}
+        {b.stage === 'IN_PROGRESS' ? (
+          <LiveTracking booking={b} reportLocation={shouldReportLocation(b, user?.id)} />
+        ) : (
+          <PaymentCard booking={b} />
+        )}
       </div>
 
       {b.stage === 'IN_PROGRESS' && <PaymentCard booking={b} />}
@@ -324,11 +328,11 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
   );
 }
 
-function LiveTracking({ booking: b, isOwner }: { booking: Booking; isOwner: boolean }) {
+function LiveTracking({ booking: b, reportLocation }: { booking: Booking; reportLocation: boolean }) {
   const [tracking, setTracking] = useState<Tracking | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Shown only while the rental is IN_PROGRESS: the rider's own browser reports its real location.
-  const gps = useRiderGps(b.id, isOwner);
+  // The rider's own browser reports its real location, only for their rental in progress (shouldReportLocation).
+  const gps = useRiderGps(b.id, reportLocation);
 
   useEffect(() => {
     let cancelled = false;
