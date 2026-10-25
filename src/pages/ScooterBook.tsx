@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { ErrorAlert, Loading, ScooterThumb } from '../components/ui';
@@ -69,6 +69,10 @@ export default function ScooterBook() {
   const s = scooter.data;
 
   return (
+    <>
+    <Link to="/#fleet" className="back-link">
+      <span aria-hidden>←</span> All scooters
+    </Link>
     <div className="grid-2">
       <div className="stack">
         <div className="card stack">
@@ -185,5 +189,6 @@ export default function ScooterBook() {
         </div>
       </div>
     </div>
+    </>
   );
 }

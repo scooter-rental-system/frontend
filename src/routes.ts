@@ -8,3 +8,6 @@
 export const bookingPath = (id: string) => `/bookings/${encodeURIComponent(id)}`;
 
 export const adminBookingPath = (id: string) => `/admin/bookings/${encodeURIComponent(id)}`;
+
+/** A scooter's booking page (public). */
+export const scooterPath = (id: string) => `/scooters/${encodeURIComponent(id)}`;
