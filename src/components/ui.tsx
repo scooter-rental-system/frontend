@@ -98,10 +98,45 @@ export function LoadError({ error, onRetry }: { error: string; onRetry: () => vo
   );
 }
 
+/** The Scooter Rent Kandy logo mark: a charcoal scooter on a gold tile (same artwork as public/scooter.svg). */
+export function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden focusable="false">
+      <rect width="32" height="32" rx="8" fill="#b8860b" />
+      <g fill="none" stroke="#16181d" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 8h3l-3 14" />
+        <path d="M9 22h11" />
+      </g>
+      <g fill="#16181d">
+        <circle cx="9" cy="23" r="3" />
+        <circle cx="22.5" cy="23" r="3" />
+      </g>
+    </svg>
+  );
+}
+
+/** Placeholder artwork for a scooter without a photo: a line drawing in the current text colour. */
+export function ScooterIllustration() {
+  return (
+    <svg viewBox="0 0 96 60" aria-hidden focusable="false">
+      <g fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="20" cy="46" r="9" />
+        <circle cx="76" cy="46" r="9" />
+        <path d="M11 40c0-10 8-16 20-15l9 1" />
+        <path d="M20 22h16" />
+        <path d="M33 40h30" />
+        <path d="M63 40 70 14" />
+        <path d="M64 14h12" />
+        <path d="M66 40c2-5 7-7 12-6" />
+      </g>
+    </svg>
+  );
+}
+
 export function ScooterThumb({ imageUrl, alt }: { imageUrl: string | null; alt: string }) {
   return (
     <div className="scooter-thumb" aria-hidden={!imageUrl}>
-      {imageUrl ? <img src={imageUrl} alt={alt} /> : '🛵'}
+      {imageUrl ? <img src={imageUrl} alt={alt} /> : <ScooterIllustration />}
     </div>
   );
 }
