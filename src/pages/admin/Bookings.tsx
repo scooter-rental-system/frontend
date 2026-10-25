@@ -48,7 +48,13 @@ export default function Bookings() {
             </option>
           ))}
         </select>
-        <input placeholder="Search reference, customer, scooter" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input
+          type="search"
+          aria-label="Search bookings"
+          placeholder="Search reference, customer, scooter"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
       <ErrorAlert error={list.error ?? action.error} />
       {list.loading && <Loading />}

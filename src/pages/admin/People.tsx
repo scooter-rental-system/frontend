@@ -23,7 +23,14 @@ export function Customers() {
   return (
     <div className="stack">
       <h1>Customers</h1>
-      <input placeholder="Search name, email, phone" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+      <input
+        type="search"
+        aria-label="Search customers"
+        placeholder="Search name, email, phone"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ maxWidth: 360 }}
+      />
       <ErrorAlert error={list.error ?? action.error} />
       {list.loading && <Loading />}
       <div className="table-wrap">

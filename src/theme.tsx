@@ -7,10 +7,18 @@ import {
   useMemo,
   useState,
 } from 'react';
+import {
+  applyResolvedTheme,
+  DARK_QUERY,
+  parseTheme,
+  resolveTheme,
+  THEME_STORAGE_KEY,
+  type Theme,
+} from './themeMode';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Theme = 'light' | 'dark' | 'system';
+export type { Theme } from './themeMode';
 
 interface ThemeState {
   /** The user's stored preference: 'light', 'dark', or 'system' (follow OS). */
@@ -24,27 +32,12 @@ interface ThemeState {
 
 const ThemeContext = createContext<ThemeState | null>(null);
 
-const STORAGE_KEY = 'srs.theme';
-
 function getStored(): Theme {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v === 'light' || v === 'dark' || v === 'system') return v;
+    return parseTheme(localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    // Private browsing
+    return 'system'; // Private browsing
   }
-  return 'system';
-}
-
-function applyTheme(resolved: 'light' | 'dark') {
-  const root = document.documentElement;
-  if (resolved === 'dark') {
-    root.setAttribute('data-theme', 'dark');
-  } else {
-    root.removeAttribute('data-theme');
-  }
-  // Also update color-scheme so native browser chrome (scrollbars, inputs) adapts
-  root.style.colorScheme = resolved;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -54,28 +47,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Listen to the OS preference so 'system' mode reacts in real time
   const [prefersDark, setPrefersDark] = useState(
-    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+    () => window.matchMedia(DARK_QUERY).matches,
   );
 
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const mq = window.matchMedia(DARK_QUERY);
     const handler = (e: MediaQueryListEvent) => setPrefersDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  const resolved: 'light' | 'dark' =
-    theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+  const resolved = resolveTheme(theme, prefersDark);
 
-  // Apply to DOM whenever resolved changes
+  // Apply to DOM whenever resolved changes (index.html already applied the saved theme before the first paint)
   useEffect(() => {
-    applyTheme(resolved);
+    applyResolvedTheme(document.documentElement, resolved);
   }, [resolved]);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
     try {
-      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
       // Storage unavailable
     }
