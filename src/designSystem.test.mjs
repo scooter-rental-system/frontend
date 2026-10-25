@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 const src = fileURLToPath(new URL('.', import.meta.url));
 const root = join(src, '..');
-const read = (...parts) => readFileSync(join(src, ...parts), 'utf8');
+// Line endings are normalised: a Windows checkout (core.autocrlf) has CRLF files.
+const read = (...parts) => readFileSync(join(src, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const css = read('styles.css');
 const layout = read('components', 'Layout.tsx');
 const ui = read('components', 'ui.tsx');
