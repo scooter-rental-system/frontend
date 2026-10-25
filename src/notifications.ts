@@ -148,9 +148,7 @@ export function createNotificationCenter({
     const seq = ++countSeq;
     try {
       const { count } = await api.get<{ count: number }>(UNREAD_COUNT_PATH);
-      if (seq === countSeq && !state.signedOut) {
-        set({ unread: count, error: state.error === NOTIFICATIONS_UNAVAILABLE ? null : state.error });
-      }
+      if (seq === countSeq && !state.signedOut) set({ unread: count });
     } catch (e) {
       if (seq === countSeq) failed(e, NOTIFICATIONS_UNAVAILABLE);
     }
