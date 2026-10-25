@@ -8,7 +8,7 @@ import { useAction, useLoad } from '../hooks';
 import type { Booking, GearItem, Quote, Scooter } from '../types';
 
 export default function ScooterBook() {
-  const { id } = useParams();
+  const { id = '' } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -22,7 +22,7 @@ export default function ScooterBook() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const create = useAction();
 
-  const scooter = useLoad(() => api.get<Scooter>(`/scooters/${id}`), [id]);
+  const scooter = useLoad(() => api.get<Scooter>(`/scooters/${encodeURIComponent(id)}`), [id]);
   const gear = useLoad(() => api.get<GearItem[]>('/gear'), []);
   const startValid = start >= dateTimeInput(new Date(Date.now() - 60_000));
 

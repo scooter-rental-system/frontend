@@ -38,6 +38,7 @@ const STAGE_TEXT: Record<BookingStage, string> = {
  * which hears the result from Stripe's webhook, before showing the payment as done.
  */
 function usePaymentReturn(id: string, setBooking: (b: Booking) => void, reloadInvoices: () => void) {
+  const bookingApi = `/bookings/${encodeURIComponent(id)}`;
   const [params, setParams] = useSearchParams();
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
   const handled = useRef(false);
@@ -56,7 +57,7 @@ function usePaymentReturn(id: string, setBooking: (b: Booking) => void, reloadIn
       return;
     }
     setNotice({ text: PAYMENT_SUBMITTED });
-    awaitBackendRecord(() => api.get<Booking>(`/bookings/${id}`), purpose).then((result) => {
+    awaitBackendRecord(() => api.get<Booking>(bookingApi), purpose).then((result) => {
       if (result.status !== 'paid') {
         setNotice({ text: PAYMENT_STILL_CONFIRMING });
         return;
@@ -71,25 +72,26 @@ function usePaymentReturn(id: string, setBooking: (b: Booking) => void, reloadIn
         setNotice({ text: 'Balance paid. Thank you!' });
       }
     });
-  }, [id, params, setParams, setBooking, reloadInvoices]);
+  }, [bookingApi, params, setParams, setBooking, reloadInvoices]);
 
   return notice;
 }
 
 export default function BookingDetail() {
-  const { id } = useParams();
+  const { id = '' } = useParams();
+  const bookingApi = `/bookings/${encodeURIComponent(id)}`;
   const [params] = useSearchParams();
   const { user } = useAuth();
-  const booking = useLoad(() => api.get<Booking>(`/bookings/${id}`), [id]);
-  const invoices = useLoad(() => api.get<Invoice[]>(`/bookings/${id}/invoices`), [id]);
+  const booking = useLoad(() => api.get<Booking>(bookingApi), [id]);
+  const invoices = useLoad(() => api.get<Invoice[]>(`${bookingApi}/invoices`), [id]);
   const [showContract, setShowContract] = useState(false);
   const contract = useLoad(
-    () => (showContract ? api.get<Contract>(`/bookings/${id}/contract`) : Promise.resolve(null)),
+    () => (showContract ? api.get<Contract>(`${bookingApi}/contract`) : Promise.resolve(null)),
     [id, showContract],
   );
   const cancel = useAction();
   const end = useAction();
-  const paymentReturn = usePaymentReturn(id!, booking.setData, invoices.reload);
+  const paymentReturn = usePaymentReturn(id, booking.setData, invoices.reload);
 
   if (booking.loading) return <Loading />;
   if (!booking.data) return <ErrorAlert error={booking.error} />;
@@ -107,13 +109,13 @@ export default function BookingDetail() {
     const msg =
       b.status === 'ACTIVE' ? 'Cancel this booking? You will receive a full refund.' : 'Cancel this reservation?';
     if (!window.confirm(msg)) return;
-    if (await cancel.run(() => api.post<Booking>(`/bookings/${id}/cancel`))) refresh();
+    if (await cancel.run(() => api.post<Booking>(`${bookingApi}/cancel`))) refresh();
   };
 
   // Ending charges the remaining balance; if that fails the booking stays ACTIVE with the balance due.
   const doEnd = async () => {
     if (!window.confirm('End the rental now? The final total is calculated and the balance charged to your card.')) return;
-    await end.run(() => api.put<Booking>(`/bookings/${id}/complete`, {}));
+    await end.run(() => api.put<Booking>(`${bookingApi}/complete`, {}));
     refresh();
   };
 
