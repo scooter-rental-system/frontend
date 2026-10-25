@@ -16,6 +16,8 @@ import {
   STRIPE_RETURN_PARAMS,
   type PaymentPurpose,
 } from '../payments';
+import { GPS_STATUS_TEXT, isTrackingOff } from '../gps';
+import { useRiderGps } from '../useRiderGps';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
 
@@ -235,7 +237,7 @@ export default function BookingDetail() {
           {contract.data && <div className="contract">{contract.data.termsText}</div>}
         </div>
 
-        {b.stage === 'IN_PROGRESS' ? <LiveTracking booking={b} /> : <PaymentCard booking={b} />}
+        {b.stage === 'IN_PROGRESS' ? <LiveTracking booking={b} isOwner={isOwner} /> : <PaymentCard booking={b} />}
       </div>
 
       {b.stage === 'IN_PROGRESS' && <PaymentCard booking={b} />}
@@ -322,9 +324,11 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
   );
 }
 
-function LiveTracking({ booking: b }: { booking: Booking }) {
+function LiveTracking({ booking: b, isOwner }: { booking: Booking; isOwner: boolean }) {
   const [tracking, setTracking] = useState<Tracking | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Shown only while the rental is IN_PROGRESS: the rider's own browser reports its real location.
+  const gps = useRiderGps(b.id, isOwner);
 
   useEffect(() => {
     let cancelled = false;
@@ -357,6 +361,12 @@ function LiveTracking({ booking: b }: { booking: Booking }) {
         <span className="muted small">Last update {dateTime(p?.lastSeen)}</span>
       </div>
       <ErrorAlert error={error} />
+      {gps && (
+        <div className={`alert small ${gps === 'active' || gps === 'starting' ? 'info' : ''}`} role="status">
+          {GPS_STATUS_TEXT[gps]}
+          {isTrackingOff(gps) && ' Your rental continues; distance is billed from the location reports received.'}
+        </div>
+      )}
       <div className="stats" aria-live="polite">
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
         <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
