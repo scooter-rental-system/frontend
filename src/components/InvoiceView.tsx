@@ -12,10 +12,10 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   // Final invoices take their status from the booking's payment; earlier ones kept their own.
   const status = invoice.kind === 'FINAL' ? invoice.paymentStatus : invoice.status;
   return (
-    <div className="card stack">
+    <article className="card stack invoice" aria-labelledby={`invoice-${invoice.id}`}>
       <div className="row between">
         <div>
-          <h3 style={{ margin: 0 }}>
+          <h3 id={`invoice-${invoice.id}`}>
             {TITLE[invoice.kind]} {invoice.invoiceNumber}
           </h3>
           <div className="muted small">
@@ -24,6 +24,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
         </div>
         {status && <StatusBadge status={status} />}
       </div>
+      <div className="invoice__table">
       <table>
         <thead>
           <tr>
@@ -64,6 +65,7 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
           )}
         </tbody>
       </table>
-    </div>
+      </div>
+    </article>
   );
 }

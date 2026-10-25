@@ -1,68 +1,70 @@
-import { Link } from 'react-router-dom';
-import { api } from '../api';
-import { Empty, ErrorAlert, Loading, StatusBadge } from '../components/ui';
-import { dateTime, humanize, money } from '../format';
-import { useLoad } from '../hooks';
-import type { Booking } from '../types';
+import { Link, useSearchParams } from 'react-router-dom';
+import { BookingList } from '../components/BookingCard';
+import { LoadError, Loading } from '../components/ui';
+import { byCategory, CATEGORY_LABEL, categoryCounts, type CategoryFilter } from '../rental';
+import { useCustomerBookings } from '../useCustomerBookings';
 
+const FILTERS: CategoryFilter[] = ['all', 'active', 'upcoming', 'past', 'cancelled'];
+const FILTER_LABEL: Record<CategoryFilter, string> = { all: 'All', ...CATEGORY_LABEL };
+
+const EMPTY: Record<CategoryFilter, string> = {
+  all: 'You have no bookings yet.',
+  active: 'No rental is in progress.',
+  upcoming: 'You have no upcoming bookings.',
+  past: 'You have no completed rentals yet.',
+  cancelled: 'You have no cancelled bookings.',
+};
+
+/**
+ * The customer's bookings, as the same cards and stage labels as the dashboard, filtered by what they mean to the
+ * customer. The filter is kept in the URL (`?show=upcoming`).
+ */
 export default function MyBookings() {
-  const { data, error, loading } = useLoad(() => api.get<Booking[]>('/bookings'));
+  const { data, error, loading, reload } = useCustomerBookings();
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('show') as CategoryFilter | null;
+  const filter: CategoryFilter = requested && FILTERS.includes(requested) ? requested : 'all';
+
+  const counts = data ? categoryCounts(data) : null;
+  const shown = data ? byCategory(data, filter) : [];
 
   return (
-    <div className="stack">
-      <h1>My bookings</h1>
-      <ErrorAlert error={error} />
-      {loading && <Loading />}
-      {data?.length === 0 && (
-        <Empty>
-          No bookings yet. <Link to="/">Find a scooter</Link>.
-        </Empty>
-      )}
-      {data && data.length > 0 && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Scooter</th>
-                <th>Started</th>
-                <th>Status</th>
-                <th className="num">Total</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.reference}</td>
-                  <td>
-                    {b.scooter.model}
-                    <div className="muted small">{b.scooter.plateNumber}</div>
-                  </td>
-                  <td>{dateTime(b.startTime)}</td>
-                  <td>
-                    <StatusBadge status={b.status} />
-                    <div className="muted small">{humanize(b.stage)}</div>
-                  </td>
-                  <td className="num">
-                    {b.totalCost != null ? money(b.totalCost) : b.payment ? <span className="muted">paid {money(b.payment.amount)}</span> : '—'}
-                  </td>
-                  <td className="right">
-                    {b.status === 'PENDING' ? (
-                      <Link className="btn small primary" to={`/bookings/${b.id}/checkout`}>
-                        Complete
-                      </Link>
-                    ) : (
-                      <Link className="btn small" to={`/bookings/${b.id}`}>
-                        View
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <div className="page">
+      <div className="page-header">
+        <h1>My bookings</h1>
+        <p className="muted">Every booking you have made, newest activity first within each group.</p>
+      </div>
+
+      {loading && !data && <Loading what="Loading your bookings" />}
+      {error && <LoadError error={`We couldn't load your bookings. ${error}`} onRetry={reload} />}
+
+      {data && counts && (
+        <>
+          <div className="filter-tabs" role="group" aria-label="Show bookings">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={`small${filter === f ? ' is-active' : ''}`}
+                aria-pressed={filter === f}
+                onClick={() => setParams(f === 'all' ? {} : { show: f }, { replace: true })}
+              >
+                {FILTER_LABEL[f]} <span className="filter-tabs__count">{counts[f]}</span>
+              </button>
+            ))}
+          </div>
+
+          {shown.length === 0 ? (
+            <div className="empty-state">
+              <h2 className="section-title">{EMPTY[filter]}</h2>
+              <Link to="/" className="btn primary">
+                Find a scooter
+              </Link>
+            </div>
+          ) : (
+            <BookingList bookings={shown} />
+          )}
+        </>
       )}
     </div>
   );
