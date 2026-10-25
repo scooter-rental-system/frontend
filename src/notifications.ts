@@ -16,6 +16,10 @@ export const markReadPath = (id: string) => `/notifications/${encodeURIComponent
  *  re-read it. Notifications are not urgent (bookings, payments, reminders), so once a minute is plenty. */
 export const REFRESH_INTERVAL_MS = 60_000;
 
+/** Broadcast limits, matching the backend (NotificationDtos.BroadcastRequest) and the notifications table. */
+export const BROADCAST_SUBJECT_MAX = 255;
+export const BROADCAST_MESSAGE_MAX = 4000;
+
 export const NOTIFICATIONS_UNAVAILABLE = 'Unable to load notifications right now. Please try again shortly.';
 export const MARK_READ_FAILED = 'Unable to mark the notification as read. Please try again.';
 export const MARK_ALL_FAILED = 'Unable to mark your notifications as read. Please try again.';
@@ -31,6 +35,15 @@ export function badgeText(count: number): string | null {
 export function bellLabel(count: number | null): string {
   if (!count) return 'Notifications';
   return `Notifications, ${count} unread`;
+}
+
+/** The broadcast form's problem, or null when the backend should accept it (it stays authoritative). */
+export function broadcastProblem(subject: string, message: string): string | null {
+  if (!subject.trim()) return 'Enter a subject.';
+  if (!message.trim()) return 'Enter a message.';
+  if (subject.trim().length > BROADCAST_SUBJECT_MAX) return `The subject is limited to ${BROADCAST_SUBJECT_MAX} characters.`;
+  if (message.trim().length > BROADCAST_MESSAGE_MAX) return `The message is limited to ${BROADCAST_MESSAGE_MAX} characters.`;
+  return null;
 }
 
 export interface NotificationApi {
