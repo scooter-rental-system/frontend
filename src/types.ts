@@ -162,7 +162,7 @@ export interface Payment {
   bookingReference: string | null;
   customerName: string | null;
   amount: number;
-  method: 'CARD' | 'ONLINE';
+  method: 'CARD' | 'ONLINE' | 'CASH';
   status: PaymentStatus;
   provider: string;
   stripePaymentId: string | null;

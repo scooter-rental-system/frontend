@@ -38,6 +38,8 @@ export default function App() {
         <Route path="admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
           <Route index element={<AdminDashboard />} />
           <Route path="bookings" element={<Bookings />} />
+          {/* The same booking page as customers see; the backend lets admins read any booking. */}
+          <Route path="bookings/:id" element={<BookingDetail />} />
           <Route path="fleet" element={<Fleet />} />
           <Route path="gps" element={<Gps />} />
           <Route path="maintenance" element={<Maintenance />} />

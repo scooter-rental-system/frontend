@@ -13,48 +13,66 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
   { value: 'system', label: 'System', icon: '💻' },
 ];
 
+/**
+ * A disclosure: the button shows or hides three ordinary buttons (Tab moves between them, the chosen one is
+ * aria-pressed). Escape or a click outside closes it.
+ */
 function ThemeToggle() {
   const { theme, resolved, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close dropdown when user clicks outside
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const icon = resolved === 'dark' ? '🌙' : '☀️';
+  const current = THEME_OPTIONS.find((opt) => opt.value === theme)?.label ?? theme;
 
   return (
     <div className="theme-menu-wrap" ref={wrapRef}>
       <button
+        ref={buttonRef}
         id="btn-theme-toggle"
         className="theme-toggle"
-        aria-label="Toggle colour theme"
+        aria-label={`Colour theme: ${current}`}
         aria-expanded={open}
+        aria-controls="theme-options"
         onClick={() => setOpen((v) => !v)}
-        title={`Theme: ${theme}`}
+        title={`Theme: ${current}`}
       >
-        {icon}
+        <span aria-hidden>{icon}</span>
       </button>
 
       {open && (
-        <div className="theme-menu" role="menu">
+        <div id="theme-options" className="theme-menu" role="group" aria-label="Colour theme">
           {THEME_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              role="menuitem"
+              aria-pressed={theme === opt.value}
               className={theme === opt.value ? 'is-active' : ''}
               onClick={() => {
                 setTheme(opt.value);
                 setOpen(false);
+                buttonRef.current?.focus();
               }}
             >
               <span aria-hidden>{opt.icon}</span>
@@ -72,6 +90,8 @@ function ThemeToggle() {
 export function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  // The customer pages are guarded to customers (RequireAuth customer); staff are not offered them.
+  const customer = user?.role === 'USER';
 
   return (
     <>
@@ -83,7 +103,8 @@ export function Layout() {
 
           <nav className="nav">
             <NavLink to="/" end>Scooters</NavLink>
-            {user && <NavLink to="/bookings">My Bookings</NavLink>}
+            {customer && <NavLink to="/dashboard">Dashboard</NavLink>}
+            {customer && <NavLink to="/bookings">My Bookings</NavLink>}
             {isAdmin(user?.role) && <NavLink to="/admin">Admin</NavLink>}
           </nav>
 
@@ -92,9 +113,13 @@ export function Layout() {
             <ThemeToggle />
             {user ? (
               <>
-                <NavLink to="/profile" className="muted small">
-                  {user.fullName}
-                </NavLink>
+                {customer ? (
+                  <NavLink to="/profile" className="muted small">
+                    {user.fullName}
+                  </NavLink>
+                ) : (
+                  <span className="muted small">{user.fullName}</span>
+                )}
                 <button
                   className="small"
                   id="btn-logout"

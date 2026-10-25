@@ -9,11 +9,12 @@ import { useAction, useLoad } from '../hooks';
 import type { Booking, Contract, PaymentIntent } from '../types';
 
 export default function Checkout() {
-  const { id } = useParams();
+  const { id = '' } = useParams();
+  const bookingApi = `/bookings/${encodeURIComponent(id)}`;
   const navigate = useNavigate();
   const { user } = useAuth();
-  const booking = useLoad(() => api.get<Booking>(`/bookings/${id}`), [id]);
-  const contract = useLoad(() => api.get<Contract>(`/bookings/${id}/contract`), [id]);
+  const booking = useLoad(() => api.get<Booking>(bookingApi), [id]);
+  const contract = useLoad(() => api.get<Contract>(`${bookingApi}/contract`), [id]);
 
   const [signedName, setSignedName] = useState('');
   const [agree, setAgree] = useState(false);
@@ -38,7 +39,7 @@ export default function Checkout() {
   }
 
   const doSign = async () => {
-    const res = await sign.run(() => api.post<Contract>(`/bookings/${id}/contract/sign`, { signedName, agree }));
+    const res = await sign.run(() => api.post<Contract>(`${bookingApi}/contract/sign`, { signedName, agree }));
     if (res) contract.setData(res);
   };
 

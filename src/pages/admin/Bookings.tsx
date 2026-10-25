@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { dateTime, humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
+import { adminBookingPath } from '../../routes';
 import type { Booking, BookingStatus } from '../../types';
 
 const STATUSES: (BookingStatus | '')[] = ['', 'PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
@@ -47,7 +48,13 @@ export default function Bookings() {
             </option>
           ))}
         </select>
-        <input placeholder="Search reference, customer, scooter" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input
+          type="search"
+          aria-label="Search bookings"
+          placeholder="Search reference, customer, scooter"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
       <ErrorAlert error={list.error ?? action.error} />
       {list.loading && <Loading />}
@@ -68,7 +75,7 @@ export default function Bookings() {
             {rows.map((b) => (
               <tr key={b.id}>
                 <td>
-                  <Link to={`/bookings/${b.id}`}>{b.reference}</Link>
+                  <Link to={adminBookingPath(b.id)}>{b.reference}</Link>
                 </td>
                 <td>
                   {b.customer.fullName}

@@ -2,4 +2,7 @@ node_modules
 dist
 .env
 .env.local
+# Any environment variant (.env.production, .env.development.local, ...); an example file may be committed.
+.env.*
+!.env.example
 *.tsbuildinfo

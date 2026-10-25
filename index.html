@@ -6,6 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Scooter Rental System — Book scooters easily online" />
     <title>Scooter Rental System</title>
+    <script>
+      // Applies the saved colour theme before the app paints, so it does not flash the wrong one.
+      // Same rules as src/themeMode.ts: Light and Dark are explicit; anything else follows the device.
+      (function () {
+        var theme = 'system';
+        try {
+          theme = localStorage.getItem('srs.theme') || 'system';
+        } catch (e) {}
+        var dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        root.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
