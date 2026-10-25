@@ -94,7 +94,12 @@ export function NotificationBell() {
             </div>
           )}
           {state.loading && !items && <p className="muted small notif-note">Loading notifications…</p>}
-          {items?.length === 0 && <p className="muted small notif-note">You have no notifications.</p>}
+          {items?.length === 0 && (
+            <div className="notif-empty">
+              <p className="notif-empty__title">You have no notifications.</p>
+              <p className="muted small">Booking updates and messages from Scooter Rent Kandy appear here.</p>
+            </div>
+          )}
 
           {items && items.length > 0 && (
             <ul className="notif-list">
@@ -108,6 +113,11 @@ export function NotificationBell() {
                     <span className="notif-item__subject">
                       {!n.read && <span className="sr-only">Unread: </span>}
                       {n.subject}
+                      {!n.read && (
+                        <span className="notif-item__new" aria-hidden>
+                          New
+                        </span>
+                      )}
                     </span>
                     <span className={`notif-item__message${expanded === n.id ? ' is-expanded' : ''}`}>{n.message}</span>
                     <time className="muted small" dateTime={n.createdAt}>
