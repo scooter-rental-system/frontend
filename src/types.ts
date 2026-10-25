@@ -258,6 +258,8 @@ export interface LivePosition {
   activeBookingReference: string | null;
   riderName: string | null;
   distanceFromBaseKm: number;
+  /** No report for 2 minutes (or never): the position is the last real one, not a live one. */
+  stale: boolean;
 }
 
 export interface TrailPoint {

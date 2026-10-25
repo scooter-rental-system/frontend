@@ -45,12 +45,18 @@ export default function Gps() {
       id: p.scooterId,
       lat: p.latitude!,
       lng: p.longitude!,
-      kind: p.status,
+      kind: p.stale ? 'STALE' : p.status,
       popup: (
         <div>
           <strong>{p.code}</strong> {p.model}
           <br />
           {p.plateNumber}
+          {p.stale && (
+            <>
+              <br />
+              <em>Last known position, no report since {dateTime(p.lastSeen)}</em>
+            </>
+          )}
           {p.riderName && (
             <>
               <br />
@@ -65,7 +71,9 @@ export default function Gps() {
     <div className="stack">
       <div className="row between">
         <h1>Live GPS</h1>
-        <span className="muted small">Refreshes every 10 s · simulated trackers in local dev</span>
+        <span className="muted small">
+          Refreshes every 10 s · from scooter trackers and riders&apos; phones · grey: no report for 2 minutes
+        </span>
       </div>
       <ErrorAlert error={error} />
       <MapView markers={markers} trail={trail?.trail.map((t) => [t.latitude, t.longitude] as [number, number])} zoom={12} />
@@ -93,7 +101,10 @@ export default function Gps() {
                 </td>
                 <td>{p.riderName ? `${p.riderName} · ${p.activeBookingReference}` : '—'}</td>
                 <td className="num">{p.distanceFromBaseKm} km</td>
-                <td>{dateTime(p.lastSeen)}</td>
+                <td>
+                  {p.lastSeen ? dateTime(p.lastSeen) : 'Never'}
+                  {p.stale && p.lastSeen && <span className="badge"> stale</span>}
+                </td>
                 <td className="right">
                   <button className="small" onClick={() => setSelected(selected === p.scooterId ? null : p.scooterId)}>
                     {selected === p.scooterId ? 'Hide trail' : 'Show 6h trail'}

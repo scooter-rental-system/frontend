@@ -358,7 +358,10 @@ function LiveTracking({ booking: b, isOwner }: { booking: Booking; isOwner: bool
     <div className="card stack">
       <div className="row between">
         <h2 style={{ margin: 0 }}>Your scooter</h2>
-        <span className="muted small">Last update {dateTime(p?.lastSeen)}</span>
+        <span className="muted small">
+          Last update {dateTime(p?.lastSeen)}
+          {p?.stale && ' · no recent location'}
+        </span>
       </div>
       <ErrorAlert error={error} />
       {gps && (
@@ -370,14 +373,25 @@ function LiveTracking({ booking: b, isOwner }: { booking: Booking; isOwner: bool
       <div className="stats" aria-live="polite">
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
         <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
-        <Stat label="Speed" value={last?.speedKmh != null ? `${Math.round(last.speedKmh)} km/h` : '—'} />
+        <Stat
+          label="Speed"
+          value={!p?.stale && last?.speedKmh != null ? `${Math.round(last.speedKmh)} km/h` : '—'}
+        />
         <Stat label="Estimated total" value={money(estimate)} hint="Final total when you end the rental" />
       </div>
       {p?.latitude != null && p.longitude != null && (
         <MapView
           center={[p.latitude, p.longitude]}
           zoom={14}
-          markers={[{ id: p.scooterId, lat: p.latitude, lng: p.longitude, kind: 'RENTED', popup: `${p.model} ${p.plateNumber}` }]}
+          markers={[
+            {
+              id: p.scooterId,
+              lat: p.latitude,
+              lng: p.longitude,
+              kind: p.stale ? 'STALE' : 'RENTED',
+              popup: `${p.model} ${p.plateNumber}${p.stale ? ' (last known position)' : ''}`,
+            },
+          ]}
           trail={tracking?.trail.map((t) => [t.latitude, t.longitude] as [number, number])}
         />
       )}
