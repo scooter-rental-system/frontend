@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BookingStepper } from '../components/BookingStepper';
+import { QuantityStepper } from '../components/QuantityStepper';
 import { ErrorAlert, Loading, ScooterThumb } from '../components/ui';
+import { quoteLines } from '../checkout';
+import { availabilityOf } from '../discovery';
 import { dateTimeInput, money, nextQuarterHour } from '../format';
 import { useAction, useLoad } from '../hooks';
 import type { Booking, GearItem, Quote, Scooter } from '../types';
@@ -67,128 +71,169 @@ export default function ScooterBook() {
   if (scooter.loading) return <Loading />;
   if (!scooter.data) return <ErrorAlert error={scooter.error ?? 'Scooter not found'} />;
   const s = scooter.data;
+  const availability = availabilityOf(s);
+  const summary = quote ? quoteLines(quote) : null;
+  const canReserve = !!quote && startValid && s.available && !create.busy;
+
+  const toSummary = () => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('booking-summary')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    document.getElementById('booking-summary-title')?.focus({ preventScroll: true });
+  };
 
   return (
-    <>
-    <Link to="/#fleet" className="back-link">
-      <span aria-hidden>←</span> All scooters
-    </Link>
-    <div className="grid-2">
-      <div className="stack">
-        <div className="card stack">
-          <ScooterThumb imageUrl={s.imageUrl} alt={s.model} />
-          <div>
-            <h1>{s.model}</h1>
-            <div className="muted">
-              {s.code} · {s.plateNumber} {s.engineCc ? `· ${s.engineCc} cc` : ''}
-            </div>
-          </div>
-          <p style={{ margin: 0 }}>{s.description}</p>
-          <div className="row">
-            <span className="price">{money(s.hourlyRate)}</span>
-            <span className="muted">per hour + {money(s.perKmRate)} per km</span>
-          </div>
-          {!s.available && <div className="alert">This scooter is not available right now.</div>}
-        </div>
+    <div className="booking-page">
+      <Link to="/#fleet" className="back-link">
+        <span aria-hidden>←</span> All scooters
+      </Link>
+      <BookingStepper current={0} />
 
-        <div className="card stack">
-          <h2>Start &amp; pickup</h2>
-          <label>
-            Start of rental
-            <input type="datetime-local" min={dateTimeInput(new Date())} value={start} onChange={(e) => setStart(e.target.value)} />
-          </label>
-          <p className="muted small" style={{ margin: 0 }}>
-            No return date needed: the rental runs until you end it in the app.
-          </p>
-          <label>
-            Pickup location
-            <select value={pickup} onChange={(e) => setPickup(e.target.value)}>
-              <option>Kandy office, Dalada Veediya</option>
-              <option>Kandy Railway Station</option>
-              <option>Hotel delivery in Kandy city (arrange by phone)</option>
-            </select>
-          </label>
-          <label>
-            Notes for us (optional)
-            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Arrival time, questions…" />
-          </label>
-        </div>
-      </div>
-
-      <div className="stack">
-        <div className="card stack">
-          <h2>Add camping &amp; travel gear</h2>
-          {gear.data?.map((g) => {
-            const max = g.available ?? g.totalQuantity;
-            return (
-              <div key={g.id} className="row between">
+      <div className="booking-layout">
+        <div className="booking-main">
+          <section className="card booking-scooter" aria-labelledby="booking-scooter-title">
+            <ScooterThumb imageUrl={s.imageUrl} alt={s.model} />
+            <div className="booking-scooter__body">
+              <div className="scooter-card__head">
                 <div>
-                  <div>{g.name}</div>
-                  <div className="muted small">
-                    {money(g.dailyRate)}/day · {max} available
-                  </div>
+                  <h1 id="booking-scooter-title">{s.model}</h1>
+                  <p className="muted small">
+                    {s.engineCc ? `${s.engineCc} cc · ` : ''}
+                    {s.code} · {s.plateNumber}
+                  </p>
                 </div>
-                <input
-                  type="number"
-                  aria-label={`Quantity of ${g.name}`}
-                  min={0}
-                  max={max}
-                  value={qty[g.id] ?? 0}
-                  style={{ width: 72 }}
-                  onChange={(e) => setQty({ ...qty, [g.id]: Math.max(0, Math.min(max, Number(e.target.value))) })}
-                />
+                <span className={`badge ${availability.tone}`}>{availability.label}</span>
               </div>
-            );
-          })}
+              {s.description && <p className="small">{s.description}</p>}
+              <p className="scooter-price">
+                <span className="price">{money(s.hourlyRate)}</span>
+                <span className="muted small"> / hour</span>
+                <span className="scooter-price__extra muted small">+ {money(s.perKmRate)} / km (from GPS)</span>
+              </p>
+            </div>
+          </section>
+          {!s.available && (
+            <div className="alert" role="alert">
+              This scooter is not available right now. <Link to="/?available=1#fleet">See available scooters</Link>
+            </div>
+          )}
+
+          <fieldset className="card booking-fieldset">
+            <legend>When &amp; where</legend>
+            <div className="stack">
+              <label>
+                Start of rental
+                <input
+                  type="datetime-local"
+                  min={dateTimeInput(new Date())}
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  aria-invalid={!startValid}
+                  aria-describedby="start-hint"
+                />
+              </label>
+              <p id="start-hint" className={startValid ? 'muted small' : 'field-error'}>
+                {startValid
+                  ? 'No return date needed: the rental runs until you end it in the app.'
+                  : 'Choose a start time from now onwards.'}
+              </p>
+              <label>
+                Pick-up location
+                <select value={pickup} onChange={(e) => setPickup(e.target.value)}>
+                  <option>Kandy office, Dalada Veediya</option>
+                  <option>Kandy Railway Station</option>
+                  <option>Hotel delivery in Kandy city (arrange by phone)</option>
+                </select>
+              </label>
+              <label>
+                Notes for us (optional)
+                <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Arrival time, questions…" />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="card booking-fieldset">
+            <legend>Camping &amp; travel gear</legend>
+            <div className="stack">
+              <p className="muted small">Optional. Gear is charged for each started day of the rental.</p>
+              <ErrorAlert error={gear.error ? `We couldn't load the gear list. ${gear.error}` : null} />
+              {gear.data?.length === 0 && <p className="muted small">No gear is offered at the moment.</p>}
+              {gear.data && gear.data.length > 0 && (
+                <ul className="gear-picker">
+                  {gear.data.map((g) => {
+                    const max = g.available ?? g.totalQuantity;
+                    return (
+                      <li key={g.id} className="gear-picker__item">
+                        <div>
+                          <div className="gear-picker__name">{g.name}</div>
+                          <div className="muted small">
+                            {money(g.dailyRate)} / day · {max > 0 ? `${max} available` : 'None available'}
+                          </div>
+                        </div>
+                        <QuantityStepper
+                          name={g.name}
+                          value={qty[g.id] ?? 0}
+                          max={max}
+                          onChange={(n) => setQty({ ...qty, [g.id]: n })}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </fieldset>
+
+          {/* Small screens: the amount and a shortcut to the summary stay in reach while filling in the form. */}
+          <div className="booking-mobilebar">
+            <div>
+              <div className="muted small">Pay now</div>
+              <strong className="num">{summary ? money(summary.payNow) : '—'}</strong>
+            </div>
+            <button type="button" className="primary" onClick={toSummary}>
+              Review &amp; reserve
+            </button>
+          </div>
         </div>
 
-        <div className="card stack">
-          <h2>Price</h2>
+        <aside className="card booking-summary" id="booking-summary" aria-labelledby="booking-summary-title">
+          <h2 id="booking-summary-title" tabIndex={-1}>
+            Booking summary
+          </h2>
           <ErrorAlert error={quoteError} />
-          {quote && (
-            <table>
-              <tbody>
-                <tr>
-                  <td>Scooter, per started hour</td>
-                  <td className="num">{money(quote.hourlyRate)}</td>
-                </tr>
-                <tr>
-                  <td>Distance, per km (from GPS)</td>
-                  <td className="num">{money(quote.perKmRate)}</td>
-                </tr>
-                {quote.gear.map((g) => (
-                  <tr key={g.gearItemId}>
-                    <td>
-                      {g.name} ×{g.quantity}, per started day
-                    </td>
-                    <td className="num">{money(g.lineTotal)}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <td>
-                    <strong>Pay now (1 hour + 1 day of gear)</strong>
-                  </td>
-                  <td className="num">
-                    <strong>{money(quote.initialCharge)}</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          {!quote && !quoteError && <p className="muted small">Calculating your price…</p>}
+          {summary && (
+            <dl className="summary-lines" aria-live="polite">
+              {summary.lines.map((line) => (
+                <div key={line.label} className="summary-line">
+                  <dt>
+                    {line.label}
+                    {line.detail && <span className="muted small"> · {line.detail}</span>}
+                  </dt>
+                  <dd className="num">{money(line.amount)}</dd>
+                </div>
+              ))}
+              <div className="summary-line summary-line--total">
+                <dt>Pay now</dt>
+                <dd className="num">{money(summary.payNow)}</dd>
+              </div>
+            </dl>
           )}
-          <p className="muted small" style={{ margin: 0 }}>
-            When you end the rental: hours × hourly rate + km × per-km rate + gear for each started day. The balance
-            after today's payment is charged to the same card.
-          </p>
+          <details className="summary-explain">
+            <summary>How the final total is calculated</summary>
+            <p className="muted small">
+              When you end the rental: hours × hourly rate + km × per-km rate + gear for each started day. The balance
+              after today's payment is charged to the same card.
+            </p>
+          </details>
           <ErrorAlert error={create.error} />
-          <button className="primary" disabled={!quote || !startValid || !s.available || create.busy} onClick={submit}>
+          <button className="primary booking-summary__cta" disabled={!canReserve} onClick={submit}>
             {user ? (create.busy ? 'Reserving…' : 'Reserve & continue') : 'Log in to book'}
           </button>
-          <p className="muted small" style={{ margin: 0 }}>
+          <p className="muted small">
             Next: review and sign the rental agreement, then pay. Unpaid reservations are released after 30 minutes.
           </p>
-        </div>
+        </aside>
       </div>
     </div>
-    </>
   );
 }
