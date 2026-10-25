@@ -1,0 +1,10 @@
+/**
+ * App paths built from backend ids. Ids are encoded, so a value can never change which route is opened.
+ *
+ * A booking has two views: the customer's own (`/bookings/:id`, customers only) and the admin view
+ * (`/admin/bookings/:id`, admins only). The backend authorizes every request either way: a customer only ever
+ * gets their own booking, an admin any booking.
+ */
+export const bookingPath = (id: string) => `/bookings/${encodeURIComponent(id)}`;
+
+export const adminBookingPath = (id: string) => `/admin/bookings/${encodeURIComponent(id)}`;

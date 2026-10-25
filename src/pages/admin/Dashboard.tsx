@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { ErrorAlert, Loading, Stat } from '../../components/ui';
 import { date, dateTime, money, today } from '../../format';
 import { useLoad } from '../../hooks';
+import { adminBookingPath } from '../../routes';
 import type { Booking, Dashboard as DashboardData, SpeedViolation } from '../../types';
 
 type Flag = { text: string; tone: 'red' | 'amber' };
@@ -168,7 +169,7 @@ function BookingList({
             <div>
               <strong>{b.scooter.code}</strong> · {b.customer.fullName}
               <div className="muted small">
-                <Link to={`/bookings/${b.id}`}>{b.reference}</Link> · from {dateTime(b.startTime)}
+                <Link to={adminBookingPath(b.id)}>{b.reference}</Link> · from {dateTime(b.startTime)}
               </div>
             </div>
             {f && <span className={`badge ${f.tone}`}>{f.text}</span>}

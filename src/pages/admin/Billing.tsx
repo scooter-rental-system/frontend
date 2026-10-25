@@ -6,6 +6,7 @@ import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { date, dateTime, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
 import { paymentSetup, PAYMENTS_UNAVAILABLE, stripeMode } from '../../payments';
+import { adminBookingPath } from '../../routes';
 import { loadPaymentConfig } from '../../stripe';
 import type { Invoice, Payment } from '../../types';
 
@@ -85,7 +86,7 @@ export default function Billing() {
                   <tr key={p.id}>
                     <td>{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
                     <td>
-                      <Link to={`/bookings/${p.bookingId}`}>{p.bookingReference}</Link>
+                      <Link to={adminBookingPath(p.bookingId)}>{p.bookingReference}</Link>
                     </td>
                     <td>{p.customerName}</td>
                     <td>
@@ -129,7 +130,7 @@ export default function Billing() {
                     <td>{inv.invoiceNumber}</td>
                     <td>{date(inv.issuedAt)}</td>
                     <td>
-                      <Link to={`/bookings/${inv.bookingId}`}>{inv.bookingReference}</Link>
+                      <Link to={adminBookingPath(inv.bookingId)}>{inv.bookingReference}</Link>
                     </td>
                     <td>{inv.customerName}</td>
                     <td>{inv.kind.toLowerCase()}</td>
