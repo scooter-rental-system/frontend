@@ -3,10 +3,11 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { BookingStepper } from '../components/BookingStepper';
+import { BookingTimeline } from '../components/BookingTimeline';
 import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
-import { ErrorAlert, Loading, Stat, StatusBadge } from '../components/ui';
+import { DetailRow, ErrorAlert, Loading, StageBadge, Stat, StatusBadge } from '../components/ui';
 import { paymentLabel } from '../checkout';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
@@ -19,6 +20,8 @@ import {
   type PaymentPurpose,
 } from '../payments';
 import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
+import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
+import { checkoutPath } from '../routes';
 import { useRiderGps } from '../useRiderGps';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
@@ -122,7 +125,7 @@ export default function BookingDetail() {
   };
 
   return (
-    <div className="stack">
+    <div className="booking-page">
       {/* Back from Checkout: shown only once the backend reports the booking ACTIVE (payment confirmed). */}
       {params.get('paid') && b.status === 'ACTIVE' && (
         <>
@@ -137,22 +140,28 @@ export default function BookingDetail() {
           {paymentReturn.text}
         </div>
       )}
-      <div className="row between">
-        <div>
-          <h1 style={{ marginBottom: 4 }}>Booking {b.reference}</h1>
-          <span className="row">
-            <StatusBadge status={b.status} />
+
+      <header className="card booking-header">
+        <div className="booking-header__main">
+          <p className="muted small">Booking</p>
+          <h1>{b.reference}</h1>
+          <div className="row">
+            <StageBadge stage={b.stage} status={b.status} />
             <span className="muted small">{STAGE_TEXT[b.stage]}</span>
-          </span>
+          </div>
+          <p className="booking-header__help">{STAGE_HELP[b.stage]}</p>
+          <p className="muted small">
+            {b.scooter.model} ({b.scooter.plateNumber}) · {b.pickupLocation}
+          </p>
         </div>
-        <div className="row">
+        <div className="booking-header__actions">
           {b.status === 'PENDING' && isOwner && (
-            <Link className="btn primary" to={`/bookings/${b.id}/checkout`}>
+            <Link className="btn primary" to={checkoutPath(b.id)}>
               {b.stage === 'PAYMENT_FAILED' ? 'Try payment again' : 'Sign & pay'}
             </Link>
           )}
           {canEnd && (
-            <button className="primary" onClick={doEnd} disabled={end.busy}>
+            <button className="primary booking-header__end" onClick={doEnd} disabled={end.busy}>
               {end.busy ? 'Ending rental…' : 'End rental'}
             </button>
           )}
@@ -162,7 +171,10 @@ export default function BookingDetail() {
             </button>
           )}
         </div>
-      </div>
+      </header>
+
+      <BookingTimeline stage={b.stage} />
+
       <ErrorAlert error={cancel.error} />
       {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
         <div className="alert" role="alert">
@@ -180,82 +192,57 @@ export default function BookingDetail() {
       )}
       {b.stage !== 'BALANCE_DUE' && <ErrorAlert error={end.error} />}
 
+      {b.stage === 'IN_PROGRESS' && <LiveTracking booking={b} reportLocation={shouldReportLocation(b, user?.id)} />}
+
       <div className="grid-2">
-        <div className="card stack">
-          <h2>Details</h2>
-          <table>
-            <tbody>
-              <tr>
-                <td className="muted">Scooter</td>
-                <td>
-                  {b.scooter.model} ({b.scooter.plateNumber})
-                </td>
-              </tr>
-              <tr>
-                <td className="muted">Rates</td>
-                <td>
-                  {money(b.scooter.hourlyRate)}/hour + {money(b.scooter.perKmRate)}/km
-                </td>
-              </tr>
-              <tr>
-                <td className="muted">Started</td>
-                <td>{dateTime(b.startTime)}</td>
-              </tr>
-              {(b.endTime ?? b.endedAt) && (
-                <tr>
-                  <td className="muted">Ended</td>
-                  <td>
-                    {dateTime(b.endTime ?? b.endedAt)} · {b.billableHours} hour{b.billableHours === 1 ? '' : 's'} ·{' '}
-                    {b.distanceKm ?? b.pendingDistanceKm} km
-                  </td>
-                </tr>
-              )}
-              <tr>
-                <td className="muted">Pickup</td>
-                <td>{b.pickupLocation ?? '—'}</td>
-              </tr>
-              {b.dropLocation && (
-                <tr>
-                  <td className="muted">Returned at</td>
-                  <td>{b.dropLocation}</td>
-                </tr>
-              )}
-              {b.gear.length > 0 && (
-                <tr>
-                  <td className="muted">Gear</td>
-                  <td>{b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}</td>
-                </tr>
-              )}
-              <tr>
-                <td className="muted">Charged at booking</td>
-                <td>{money(b.initialCharge)} (1 hour + 1 day of gear)</td>
-              </tr>
-              {(b.totalCost ?? b.pendingTotalCost) != null && (
-                <tr>
-                  <td className="muted">Final total</td>
-                  <td>
-                    <strong>{money(b.totalCost ?? b.pendingTotalCost)}</strong>
-                    {b.totalCost == null && <span className="muted small"> (balance due)</span>}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <section className="card stack" aria-labelledby="details-title">
+          <h2 id="details-title">Rental details</h2>
+          <dl className="small">
+            <DetailRow label="Scooter">
+              {b.scooter.model} ({b.scooter.plateNumber})
+            </DetailRow>
+            <DetailRow label="Rates">
+              {money(b.scooter.hourlyRate)}/hour + {money(b.scooter.perKmRate)}/km
+            </DetailRow>
+            <DetailRow label="Started">{dateTime(b.startTime)}</DetailRow>
+            {(b.endTime ?? b.endedAt) && (
+              <DetailRow label="Ended">
+                {dateTime(b.endTime ?? b.endedAt)} · {b.billableHours} hour{b.billableHours === 1 ? '' : 's'} ·{' '}
+                {b.distanceKm ?? b.pendingDistanceKm} km
+              </DetailRow>
+            )}
+            <DetailRow label="Pickup">{b.pickupLocation ?? '—'}</DetailRow>
+            {b.dropLocation && <DetailRow label="Returned at">{b.dropLocation}</DetailRow>}
+            {b.gear.length > 0 && (
+              <DetailRow label="Gear">
+                {b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}
+              </DetailRow>
+            )}
+            <DetailRow label="Charged at booking">{money(b.initialCharge)} (1 hour + 1 day of gear)</DetailRow>
+            {(b.totalCost ?? b.pendingTotalCost) != null && (
+              <DetailRow label="Final total">
+                <strong>{money(b.totalCost ?? b.pendingTotalCost)}</strong>
+                {b.totalCost == null && <span className="muted small"> (balance due)</span>}
+              </DetailRow>
+            )}
+          </dl>
           <button className="small" onClick={() => setShowContract(!showContract)}>
             {showContract ? 'Hide' : 'View'} rental agreement {b.contractSigned ? '(signed)' : '(unsigned)'}
           </button>
           {contract.data && <div className="contract">{contract.data.termsText}</div>}
-        </div>
+        </section>
 
-        {b.stage === 'IN_PROGRESS' ? (
-          <LiveTracking booking={b} reportLocation={shouldReportLocation(b, user?.id)} />
-        ) : (
-          <PaymentCard booking={b} />
-        )}
+        <PaymentCard booking={b} />
       </div>
 
-      {b.stage === 'IN_PROGRESS' && <PaymentCard booking={b} />}
-      {invoices.data?.map((inv) => <InvoiceView key={inv.id} invoice={inv} />)}
+      {invoices.data && invoices.data.length > 0 && (
+        <section className="stack" aria-labelledby="invoices-title">
+          <h2 id="invoices-title">Invoice &amp; receipt</h2>
+          {invoices.data.map((inv) => (
+            <InvoiceView key={inv.id} invoice={inv} />
+          ))}
+        </section>
+      )}
     </div>
   );
 }
@@ -277,8 +264,15 @@ function BalanceDue({
   // The balance PaymentIntent is created only when the customer chooses to pay online, not on every visit.
   const [payOnline, setPayOnline] = useState(false);
   return (
-    <div className="card stack">
-      <h2>Remaining balance due</h2>
+    <section className="card stack action-panel" aria-labelledby="balance-title">
+      <div className="checkout-task__head">
+        <h2 id="balance-title">Remaining balance due</h2>
+        <span className="badge amber">Action needed</span>
+      </div>
+      <div className="checkout-amount">
+        <span className="muted">Balance due</span>
+        <strong className="price">{money(due)}</strong>
+      </div>
       <div className="alert" role="alert">
         The rental ended {dateTime(b.endedAt)} (total {money(b.pendingTotalCost)}), but {money(due)} could not be charged
         {b.payment?.failureReason ? `: ${b.payment.failureReason}` : ''}. The rental stays open until it is paid.
@@ -300,12 +294,13 @@ function BalanceDue({
           amount={due}
           billingName={b.customer.fullName}
           billingEmail={b.customer.email}
-          createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/balance-intent`)}
-          reload={() => api.get<Booking>(`/bookings/${b.id}`)}
+          createIntent={() => api.post<PaymentIntent>(`/bookings/${encodeURIComponent(b.id)}/balance-intent`)}
+          reload={() => api.get<Booking>(`/bookings/${encodeURIComponent(b.id)}`)}
           onSettled={onPaid}
         />
       )}
-    </div>
+      <p className="muted small">The balance is shown as paid once Stripe confirms the payment to us.</p>
+    </section>
   );
 }
 
@@ -348,7 +343,7 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
     let cancelled = false;
     const load = () =>
       api
-        .get<Tracking>(`/bookings/${b.id}/tracking`)
+        .get<Tracking>(`/bookings/${encodeURIComponent(b.id)}/tracking`)
         .then((t) => !cancelled && setTracking(t))
         .catch((e) => !cancelled && setError(e.message));
     load();
@@ -367,32 +362,43 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
   const estimate = hours * b.scooter.hourlyRate + km * b.scooter.perKmRate + gearCost;
   const last = tracking?.trail[tracking.trail.length - 1];
   const p = tracking?.position;
+  const live = liveState(p);
+  const speed = speedState(last?.speedKmh, !!p?.stale);
 
   return (
-    <div className="card stack">
-      <div className="row between">
-        <h2 style={{ margin: 0 }}>Your scooter</h2>
-        <span className="muted small">
-          Last update {dateTime(p?.lastSeen)}
-          {p?.stale && ' · no recent location'}
-        </span>
+    <section className="card stack live-rental" aria-labelledby="live-title">
+      <div className="live-rental__head">
+        <h2 id="live-title">Live rental</h2>
+        <span className={`badge ${live.tone}`}>{live.label}</span>
       </div>
+      <p className="live-rental__strip muted small">
+        <span>Last update {dateTime(p?.lastSeen)}</span>
+        <span>
+          {b.scooter.model} ({b.scooter.plateNumber})
+        </span>
+      </p>
       <ErrorAlert error={error} />
       {gps && (
-        <div className={`alert small ${gps === 'active' || gps === 'starting' ? 'info' : ''}`} role="status">
+        <div className={`alert small ${gps === 'active' || gps === 'starting' ? 'info' : 'warning'}`} role="status">
           {GPS_STATUS_TEXT[gps]}
           {isTrackingOff(gps) && ' Your rental continues; distance is billed from the location reports received.'}
         </div>
       )}
-      <div className="stats" aria-live="polite">
+      {speed.over && (
+        <div className="alert warning" role="alert">
+          <strong>Over the speed limit:</strong> your last reported speed was {speed.text}. Please slow down; the limit
+          is {SPEED_LIMIT_KMH} km/h.
+        </div>
+      )}
+      <div className="stats live-rental__tiles" aria-live="polite">
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
         <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
-        <Stat
-          label="Speed"
-          value={!p?.stale && last?.speedKmh != null ? `${Math.round(last.speedKmh)} km/h` : '—'}
-        />
+        <Stat label="Speed" value={speed.text} hint={speed.over ? `Over ${SPEED_LIMIT_KMH} km/h` : undefined} />
         <Stat label="Estimated total" value={money(estimate)} hint="Final total when you end the rental" />
       </div>
+      {(p?.latitude == null || p.longitude == null) && tracking && (
+        <p className="muted small">No location has been reported for this rental yet, so there is no map position to show.</p>
+      )}
       {p?.latitude != null && p.longitude != null && (
         <MapView
           center={[p.latitude, p.longitude]}
@@ -409,10 +415,10 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
           trail={tracking?.trail.map((t) => [t.latitude, t.longitude] as [number, number])}
         />
       )}
-      <p className="muted small" style={{ margin: 0 }}>
+      <p className="muted small">
         GPS logs your route for distance billing and helps us find you if you need roadside help. In an emergency,
-        call our office.
+        call our office. When you are back, use <strong>End rental</strong> at the top of this page.
       </p>
-    </div>
+    </section>
   );
 }
