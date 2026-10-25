@@ -1411,6 +1411,32 @@ tbody tr:last-child td { border-bottom: none; }
 .scooter-card.is-unavailable { box-shadow: none; }
 .scooter-card.is-unavailable .scooter-thumb { opacity: 0.55; filter: grayscale(1); }
 
+/* Loading placeholders. */
+.skeleton {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+.skeleton--line { height: 14px; }
+.skeleton--button { width: 88px; height: var(--control-h); }
+.scooter-card--skeleton .scooter-thumb { border-radius: var(--radius-sm); }
+@keyframes skeleton-pulse {
+  50% { opacity: 0.5; }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.empty-state button { margin-top: var(--space-2); }
+
 /* How it works: numbered steps (the <ol> carries the order for screen readers). */
 .how-steps {
   list-style: none;

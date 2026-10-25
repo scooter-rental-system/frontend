@@ -52,3 +52,19 @@ export function ScooterCard({ scooter: s, onShowAvailable }: { scooter: Scooter;
     </article>
   );
 }
+
+/** Placeholder cards while the fleet loads (hidden from screen readers; the page announces the loading). */
+export function ScooterCardSkeleton() {
+  return (
+    <div className="card scooter-card scooter-card--skeleton" aria-hidden>
+      <div className="scooter-thumb skeleton" />
+      <div className="skeleton skeleton--line" style={{ width: '60%' }} />
+      <div className="skeleton skeleton--line" style={{ width: '35%' }} />
+      <div className="skeleton skeleton--line" style={{ width: '90%' }} />
+      <div className="scooter-card__foot">
+        <div className="skeleton skeleton--line" style={{ width: '40%' }} />
+        <div className="skeleton skeleton--button" />
+      </div>
+    </div>
+  );
+}

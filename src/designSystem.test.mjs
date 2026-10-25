@@ -225,7 +225,10 @@ describe('application shell', () => {
     for (const source of [layout, ui, read('pages', 'Auth.tsx')]) assert.doesNotMatch(source, /🛵/);
     assert.match(ui, /export function BrandMark\(\)/);
     assert.match(ui, /export function ScooterIllustration\(\)/);
-    assert.match(ui, /imageUrl \? <img src=\{imageUrl\} alt=\{alt\} \/> : <ScooterIllustration \/>/);
+    // A real photo when there is one that loads; otherwise the project placeholder (Phase 2 added the error fallback).
+    assert.match(ui, /const showImage = !!imageUrl && imageUrl !== failedUrl;/);
+    assert.match(ui, /<img src=\{imageUrl\} alt=\{alt\} loading="lazy" onError=\{\(\) => setFailedUrl\(imageUrl\)\} \/>/);
+    assert.match(ui, /\) : \(\s*<ScooterIllustration \/>\s*\)\}/);
     const favicon = readFileSync(join(root, 'public', 'scooter.svg'), 'utf8');
     assert.match(favicon, /fill="#b8860b"/);
   });

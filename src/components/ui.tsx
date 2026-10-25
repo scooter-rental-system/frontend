@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { STAGE_LABEL } from '../bookings';
 import { humanize } from '../format';
 import type { BookingStage, BookingStatus } from '../types';
@@ -133,10 +133,17 @@ export function ScooterIllustration() {
   );
 }
 
+/** The scooter's photo from the backend; the project placeholder when there is none or it fails to load. */
 export function ScooterThumb({ imageUrl, alt }: { imageUrl: string | null; alt: string }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = !!imageUrl && imageUrl !== failedUrl;
   return (
-    <div className="scooter-thumb" aria-hidden={!imageUrl}>
-      {imageUrl ? <img src={imageUrl} alt={alt} /> : <ScooterIllustration />}
+    <div className="scooter-thumb" aria-hidden={!showImage}>
+      {showImage ? (
+        <img src={imageUrl} alt={alt} loading="lazy" onError={() => setFailedUrl(imageUrl)} />
+      ) : (
+        <ScooterIllustration />
+      )}
     </div>
   );
 }

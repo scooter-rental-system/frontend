@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
-import { ScooterCard } from '../components/ScooterCard';
+import { ScooterCard, ScooterCardSkeleton } from '../components/ScooterCard';
 import { ErrorAlert, LoadError, ScooterIllustration } from '../components/ui';
 import { Discovery, discover, discoveryParams, isFiltered, NO_FILTERS, parseDiscovery, resultSummary, SORT_OPTIONS, SortKey } from '../discovery';
 import { humanize, money } from '../format';
@@ -27,6 +27,8 @@ const HOW_IT_WORKS = [
     text: 'There is no fixed return time: end the rental in the app. The hours and kilometres you rode are charged to the same card.',
   },
 ];
+
+const SKELETONS = 3;
 
 export default function Home() {
   const [params, setParams] = useSearchParams();
@@ -137,12 +139,34 @@ export default function Home() {
         )}
 
         {scooters.loading && !scooters.data && (
-          <p className="muted" role="status">
-            Loading scooters…
-          </p>
+          <>
+            <p className="sr-only" role="status">
+              Loading scooters…
+            </p>
+            <div className="grid">
+              {Array.from({ length: SKELETONS }, (_, i) => (
+                <ScooterCardSkeleton key={i} />
+              ))}
+            </div>
+          </>
         )}
 
-        {scooters.data && all.length > 0 && shown.length === 0 && <p className="muted">No scooters match your filters.</p>}
+        {scooters.data && all.length === 0 && (
+          <div className="empty-state">
+            <h3>No scooters are listed yet</h3>
+            <p className="muted">Please check back soon.</p>
+          </div>
+        )}
+
+        {scooters.data && all.length > 0 && shown.length === 0 && (
+          <div className="empty-state">
+            <h3>{discovery.available && !discovery.q.trim() ? 'No scooters are available right now' : 'No scooters match your filters'}</h3>
+            <p className="muted">Try another search, or show the whole fleet.</p>
+            <button type="button" onClick={clearFilters}>
+              Clear filters
+            </button>
+          </div>
+        )}
 
         {shown.length > 0 && (
           <div className="grid">
