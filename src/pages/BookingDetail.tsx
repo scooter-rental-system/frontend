@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BookingStepper } from '../components/BookingStepper';
 import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
 import { ErrorAlert, Loading, Stat, StatusBadge } from '../components/ui';
+import { paymentLabel } from '../checkout';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
 import {
@@ -121,8 +123,14 @@ export default function BookingDetail() {
 
   return (
     <div className="stack">
+      {/* Back from Checkout: shown only once the backend reports the booking ACTIVE (payment confirmed). */}
       {params.get('paid') && b.status === 'ACTIVE' && (
-        <div className="alert success">Payment received. Your scooter is booked!</div>
+        <>
+          <BookingStepper current={3} />
+          <div className="alert success" role="status">
+            Payment received. Your scooter is booked!
+          </div>
+        </>
       )}
       {paymentReturn && (
         <div className={`alert ${paymentReturn.error ? '' : 'info'}`} role={paymentReturn.error ? 'alert' : 'status'}>
@@ -311,7 +319,7 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
         <div className="row between">
           <div>
             <div>
-              {p.status === 'REFUNDED' ? 'Refunded' : 'Charged'}
+              {paymentLabel(p.status)}
               {p.cardLast4 && <span className="muted small"> · card ****{p.cardLast4}</span>}
             </div>
             <div className="muted small">
