@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { CardPayment } from '../components/CardPayment';
+import { StripePayment } from '../components/StripePayment';
 import { ErrorAlert, Loading } from '../components/ui';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
@@ -117,12 +117,16 @@ export default function Checkout() {
                 Last attempt failed: {b.payment.failureReason}
               </div>
             )}
-            <CardPayment
+            <StripePayment
+              bookingId={b.id}
+              purpose="initial"
               amount={b.initialCharge}
               disabled={!c.signed}
-              defaultName={user?.fullName}
-              createIntent={() => api.post<PaymentIntent>(`/bookings/${id}/payment-intent`)}
-              onPaid={() => navigate(`/bookings/${id}?paid=1`)}
+              billingName={user?.fullName}
+              billingEmail={user?.email}
+              createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/payment-intent`)}
+              reload={() => api.get<Booking>(`/bookings/${b.id}`)}
+              onSettled={() => navigate(`/bookings/${b.id}?paid=1`)}
             />
             {!c.signed && <p className="muted small">Sign the agreement first.</p>}
           </div>
