@@ -184,7 +184,8 @@ describe('application shell', () => {
   it('labels the main, footer and admin navigation landmarks', () => {
     assert.match(layout, /<nav className="nav" aria-label="Main">/);
     assert.match(layout, /<nav aria-label="Footer">/);
-    assert.match(layout, /<nav className="sidebar" aria-label="Admin sections">/);
+    // Phase 5: the admin nav also opens as a drawer on small screens (id + is-open).
+    assert.match(layout, /<nav id="admin-nav" className=\{`sidebar\$\{open \? ' is-open' : ''\}`\} aria-label="Admin sections">/);
   });
 
   it('collapses navigation behind an accessible menu button on small screens', () => {

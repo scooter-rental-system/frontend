@@ -1098,33 +1098,44 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ─── Admin shell ───────────────────────────────────────────── */
-/* Phase 1 keeps the existing sidebar; the grouped admin navigation is Phase 5. */
+/* Grouped navigation beside the page; behind an "Admin menu" button below 900px. */
 .admin-shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   gap: var(--space-5);
 }
 .admin-shell > section { min-width: 0; }
+.admin-shell__bar { display: none; }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3);
   position: sticky;
   top: 88px;
   align-self: start;
-  padding: var(--space-2);
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
 .sidebar__title {
-  padding: var(--space-2) 12px var(--space-1);
-  color: var(--text-muted);
-  font-size: 0.75rem;
+  padding: 0 12px;
+  color: var(--text);
+  font-size: 0.9375rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+}
+
+.sidebar__group ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.sidebar__group-title {
+  padding: 0 12px var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -1143,27 +1154,165 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text);
   text-decoration: none;
 }
+/* Current section: tinted, bold and a gold bar (not colour alone; NavLink sets aria-current="page"). */
 .sidebar a.active {
   background: var(--brand-soft);
   color: var(--text);
   font-weight: 700;
   box-shadow: inset 3px 0 0 var(--brand);
 }
+.sidebar a:focus-visible { outline-offset: -2px; }
+.sidebar .sidebar__exit {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding-top: var(--space-3);
+  font-size: 0.875rem;
+}
 
-/* Small screens: one scrollable row of sections instead of a wrapped block of links. */
 @media (max-width: 899px) {
   .admin-shell { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-  .sidebar {
-    position: static;
-    flex-direction: row;
-    overflow-x: auto;
-    padding: var(--space-1);
-    scrollbar-width: thin;
+  .admin-shell__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
+  .admin-shell__context { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 700; min-width: 0; }
+  .admin-menu-toggle { min-height: 44px; }
+  .sidebar { display: none; position: static; max-height: none; }
+  .sidebar.is-open { display: flex; }
   .sidebar__title { display: none; }
-  .sidebar a { flex: none; white-space: nowrap; }
-  .sidebar a.active { box-shadow: inset 0 -3px 0 var(--brand); }
+  .sidebar a { min-height: 44px; }
 }
+
+/* ─── Admin pages ───────────────────────────────────────────── */
+.admin-page { display: flex; flex-direction: column; gap: var(--space-5); }
+.admin-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.admin-page__header h1 { font-size: 1.75rem; }
+.admin-page__header p { margin-top: var(--space-1); }
+.admin-page__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-end; }
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.admin-toolbar label { flex: 1 1 220px; }
+.admin-toolbar .admin-toolbar__count { margin-left: auto; align-self: center; }
+
+.kpi-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+}
+.kpi { border-left: 4px solid var(--border-strong); }
+.kpi.is-attention { border-left-color: var(--warning); }
+.kpi__flag { color: var(--warning-text); font-weight: 700; }
+
+/* Responsive admin tables: real tables on wide screens, one card per row on phones. Each cell carries its
+   column name in data-label, shown before the value on small screens. */
+.admin-table td .cell-sub { display: block; color: var(--text-muted); font-size: 0.8125rem; }
+.admin-table td.actions { text-align: right; }
+.admin-table td.actions .row { justify-content: flex-end; }
+.admin-table tr.is-selected td { background: var(--brand-soft); }
+@media (max-width: 767px) {
+  .table-wrap:has(> .admin-table) { border: none; background: transparent; overflow: visible; }
+  .admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; width: 100%; }
+  .admin-table tr {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .admin-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 35%) minmax(0, 1fr);
+    gap: var(--space-3);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    white-space: normal;
+  }
+  .admin-table td:last-child { border-bottom: none; }
+  .admin-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .admin-table td.num { text-align: left; }
+  .admin-table td.actions { display: block; padding-top: var(--space-3); }
+  .admin-table td.actions::before { display: none; }
+  .admin-table td.actions .row { justify-content: flex-start; }
+  .admin-table td.actions button, .admin-table td.actions .btn { min-height: 44px; }
+  .admin-table tbody tr:hover { background: var(--surface); }
+}
+
+/* Segmented filters (Billing tabs and payment status). */
+.segmented { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.segmented button { min-height: 40px; }
+.segmented button[aria-pressed="true"],
+.segmented button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+/* Live GPS: tracked scooters beside the map from 1024px. */
+.gps-layout { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1024px) {
+  .gps-layout { grid-template-columns: 340px minmax(0, 1fr); }
+  .gps-layout .map { height: clamp(420px, 70vh, 680px); }
+}
+.gps-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); max-height: 70vh; overflow-y: auto; }
+.gps-item {
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: var(--space-3);
+  text-align: left;
+  white-space: normal;
+  font-weight: 400;
+  border-radius: var(--radius-sm);
+}
+.gps-item[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+.gps-item__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-weight: 700; }
+.gps-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+
+.violation-list { list-style: none; display: flex; flex-direction: column; }
+.violation-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.violation-list li:first-child { border-top: none; }
+
+.field-hint { display: block; color: var(--text-muted); font-size: 0.8125rem; font-weight: 400; }
+.admin-form { display: flex; flex-direction: column; gap: var(--space-4); }
+.admin-form__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 /* ─── Maps ──────────────────────────────────────────────────── */
 /* Leaflet fills its container (MapView sets height: 100%), so the wrapper needs a real height.

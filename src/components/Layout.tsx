@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { type Theme, useTheme } from '../theme';
+import { activeAdminLink, ADMIN_NAV } from '../admin';
 import { isAdmin } from '../types';
 import { NotificationBell } from './NotificationBell';
 import { BrandMark } from './ui';
@@ -302,31 +303,68 @@ export function RequireAuth({
   return children;
 }
 
-const ADMIN_LINKS = [
-  ['/admin', 'Dashboard'],
-  ['/admin/bookings', 'Bookings'],
-  ['/admin/fleet', 'Fleet'],
-  ['/admin/gps', 'Live GPS'],
-  ['/admin/maintenance', 'Maintenance'],
-  ['/admin/gear', 'Camping gear'],
-  ['/admin/billing', 'Payments & billing'],
-  ['/admin/customers', 'Customers'],
-  ['/admin/notifications', 'Notifications'],
-  ['/admin/reports', 'Reports'],
-] as const;
-
+/**
+ * The admin console: grouped navigation beside the page on wide screens. Below 900px the navigation sits behind an
+ * "Admin menu" button (a disclosure: aria-expanded; Escape closes it and returns focus; navigating closes it).
+ */
 export function AdminLayout() {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const location = useLocation();
+  const current = activeAdminLink(location.pathname);
+
+  useEffect(() => setOpen(false), [location.pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
     <div className="admin-shell">
-      <nav className="sidebar" aria-label="Admin sections">
+      <div className="admin-shell__bar">
+        <span className="admin-shell__context">
+          <span className="badge">Admin</span> {current?.label ?? 'Admin'}
+        </span>
+        <button
+          ref={buttonRef}
+          type="button"
+          className="small admin-menu-toggle"
+          aria-expanded={open}
+          aria-controls="admin-nav"
+          onClick={() => setOpen((v) => !v)}
+        >
+          Admin menu
+        </button>
+      </div>
+      <nav id="admin-nav" className={`sidebar${open ? ' is-open' : ''}`} aria-label="Admin sections">
         <div className="sidebar__title" aria-hidden>
           Admin
         </div>
-        {ADMIN_LINKS.map(([to, label]) => (
-          <NavLink key={to} to={to} end={to === '/admin'}>
-            {label}
-          </NavLink>
+        {ADMIN_NAV.map((group) => (
+          <div key={group.title} className="sidebar__group">
+            <h2 className="sidebar__group-title">{group.title}</h2>
+            <ul>
+              {group.links.map((link) => (
+                <li key={link.to}>
+                  <NavLink to={link.to} end={link.to === '/admin'}>
+                    {link.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
+        <Link to="/" className="sidebar__exit">
+          <span aria-hidden>←</span> Back to the website
+        </Link>
       </nav>
       <section>
         <Outlet />
@@ -334,4 +372,3 @@ export function AdminLayout() {
     </div>
   );
 }
-
