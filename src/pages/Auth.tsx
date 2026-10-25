@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
-import { ErrorAlert, FieldError } from '../components/ui';
+import { BrandMark, ErrorAlert, FieldError } from '../components/ui';
 import { useAction } from '../hooks';
 import type { RegisterFormData, RegisterFormUI } from '../types';
 import { isAdmin } from '../types';
@@ -99,7 +99,7 @@ export function Login() {
       <div className="auth-card">
         {/* Header */}
         <div className="auth-header">
-          <div className="auth-logo">🛵</div>
+          <div className="auth-logo"><BrandMark /></div>
           <h1 className="auth-title">Welcome back</h1>
           <p className="auth-subtitle">Sign in to your account to continue</p>
         </div>
@@ -288,7 +288,7 @@ export function Register() {
       <div className="auth-card auth-card--wide">
         {/* Header */}
         <div className="auth-header">
-          <div className="auth-logo">🛵</div>
+          <div className="auth-logo"><BrandMark /></div>
           <h1 className="auth-title">Create your account</h1>
           <p className="auth-subtitle">Join us and start renting scooters today</p>
         </div>
