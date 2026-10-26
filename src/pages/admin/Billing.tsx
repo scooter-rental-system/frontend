@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
+import { filterPayments, initials, PAYMENT_FILTERS, PAYMENT_TONE, paymentCounts, type PaymentFilter } from '../../admin';
 import InvoiceView from '../../components/InvoiceView';
-import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
-import { date, dateTime, money } from '../../format';
+import { Empty, ErrorAlert, Loading, StatusBadge } from '../../components/ui';
+import { date, dateTime, humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
 import { paymentSetup, PAYMENTS_UNAVAILABLE, stripeMode } from '../../payments';
 import { adminBookingPath } from '../../routes';
@@ -34,6 +35,7 @@ function PaymentProviderStatus() {
 
 export default function Billing() {
   const [tab, setTab] = useState<'payments' | 'invoices'>('payments');
+  const [filter, setFilter] = useState<PaymentFilter>('ALL');
   const payments = useLoad(() => api.get<Payment[]>('/admin/payments'));
   const invoices = useLoad(() => api.get<Invoice[]>('/admin/invoices'));
   const [open, setOpen] = useState<Invoice | null>(null);
@@ -44,15 +46,27 @@ export default function Billing() {
     if (inv) setOpen(inv);
   };
 
+  const counts = paymentCounts(payments.data ?? []);
+  const shown = filterPayments(payments.data ?? [], filter);
+
   return (
-    <div className="stack">
-      <h1>Payments & billing</h1>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <div>
+          <span className="eyebrow">Finance</span>
+          <h1>
+            Payments <span className="accent-text">&amp; billing</span>
+          </h1>
+          <p className="muted">Card payments taken through Stripe, and the invoices issued for each booking.</p>
+        </div>
+      </div>
       <PaymentProviderStatus />
-      <div className="row">
-        <button className={tab === 'payments' ? 'primary' : ''} onClick={() => setTab('payments')}>
+
+      <div className="segmented" role="group" aria-label="Show">
+        <button type="button" aria-pressed={tab === 'payments'} onClick={() => setTab('payments')}>
           Payments
         </button>
-        <button className={tab === 'invoices' ? 'primary' : ''} onClick={() => setTab('invoices')}>
+        <button type="button" aria-pressed={tab === 'invoices'} onClick={() => setTab('invoices')}>
           Invoices
         </button>
       </div>
@@ -67,92 +81,143 @@ export default function Billing() {
       )}
 
       {tab === 'payments' && (
-        <>
-          {payments.loading && <Loading />}
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Paid</th>
-                  <th>Booking</th>
-                  <th>Customer</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th className="num">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.data?.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
-                    <td>
-                      <Link to={adminBookingPath(p.bookingId)}>{p.bookingReference}</Link>
-                    </td>
-                    <td>{p.customerName}</td>
-                    <td>
-                      {p.method.toLowerCase()}
-                      {p.cardLast4 && <span className="muted small"> ****{p.cardLast4}</span>}
-                    </td>
-                    <td>
-                      <StatusBadge status={p.status} />
-                      {p.balanceDue != null && <div className="badge red">Due {money(p.balanceDue)}</div>}
-                      {p.failureReason && <div className="muted small">{p.failureReason}</div>}
-                    </td>
-                    <td className="num">{money(p.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section className="stack" aria-labelledby="payments-title">
+          <h2 id="payments-title" className="sr-only">
+            Payments
+          </h2>
+          <div className="segmented" role="group" aria-label="Payment status">
+            {PAYMENT_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                className="small"
+                aria-pressed={filter === f.value}
+                onClick={() => setFilter(f.value)}
+              >
+                {f.label} <span className="count">({counts[f.value]})</span>
+              </button>
+            ))}
           </div>
-        </>
+          {payments.loading && <Loading />}
+          {payments.data && shown.length === 0 && <Empty>No payments with this status.</Empty>}
+          {shown.length > 0 && (
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Booking</th>
+                    <th scope="col">Paid</th>
+                    <th scope="col">Method</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="num">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((p) => (
+                    <tr key={p.id}>
+                      <td data-label="Customer">
+                        <div className="cell-person">
+                          <span className="avatar" aria-hidden>
+                            {initials(p.customerName)}
+                          </span>
+                          <strong>{p.customerName ?? '—'}</strong>
+                        </div>
+                      </td>
+                      <td data-label="Booking">
+                        <Link to={adminBookingPath(p.bookingId)}>{p.bookingReference}</Link>
+                      </td>
+                      <td data-label="Paid">{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
+                      <td data-label="Method">
+                        {p.method.toLowerCase()}
+                        {p.cardLast4 && <span className="cell-sub">card ending {p.cardLast4}</span>}
+                      </td>
+                      <td data-label="Status">
+                        <span className="row">
+                          <span className={`badge ${PAYMENT_TONE[p.status]}`}>{humanize(p.status)}</span>
+                          {p.balanceDue != null && <span className="badge red">Due {money(p.balanceDue)}</span>}
+                        </span>
+                        {p.failureReason && <span className="cell-sub">{p.failureReason}</span>}
+                      </td>
+                      <td data-label="Amount" className="num">
+                        {money(p.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="table-foot">
+                <span>
+                  Showing {shown.length} of {payments.data?.length ?? 0} payments
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {tab === 'invoices' && (
-        <>
+        <section className="stack" aria-labelledby="invoices-title">
+          <h2 id="invoices-title" className="sr-only">
+            Invoices
+          </h2>
           {invoices.loading && <Loading />}
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Invoice</th>
-                  <th>Issued</th>
-                  <th>Booking</th>
-                  <th>Customer</th>
-                  <th>Kind</th>
-                  <th>Status</th>
-                  <th className="num">Total</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.data?.map((inv) => (
-                  <tr key={inv.id}>
-                    <td>{inv.invoiceNumber}</td>
-                    <td>{date(inv.issuedAt)}</td>
-                    <td>
-                      <Link to={adminBookingPath(inv.bookingId)}>{inv.bookingReference}</Link>
-                    </td>
-                    <td>{inv.customerName}</td>
-                    <td>{inv.kind.toLowerCase()}</td>
-                    <td>
-                      {(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status) && (
-                        <StatusBadge status={(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status)!} />
-                      )}
-                    </td>
-                    <td className="num">{money(inv.total)}</td>
-                    <td className="right">
-                      <div className="row" style={{ justifyContent: 'flex-end' }}>
-                        <button className="small" onClick={() => viewInvoice(inv.id)}>
-                          View
-                        </button>
-                      </div>
-                    </td>
+          {invoices.data?.length === 0 && <Empty>No invoices yet.</Empty>}
+          {invoices.data && invoices.data.length > 0 && (
+            <div className="table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Invoice</th>
+                    <th scope="col">Issued</th>
+                    <th scope="col">Booking</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="num">
+                      Total
+                    </th>
+                    <th scope="col">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+                </thead>
+                <tbody>
+                  {invoices.data.map((inv) => (
+                    <tr key={inv.id}>
+                      <td data-label="Invoice">
+                        <strong>{inv.invoiceNumber}</strong>
+                      </td>
+                      <td data-label="Issued">{date(inv.issuedAt)}</td>
+                      <td data-label="Booking">
+                        <Link to={adminBookingPath(inv.bookingId)}>{inv.bookingReference}</Link>
+                      </td>
+                      <td data-label="Customer">{inv.customerName}</td>
+                      <td data-label="Kind">{inv.kind.toLowerCase()}</td>
+                      <td data-label="Status">
+                        {(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status) && (
+                          <StatusBadge status={(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status)!} />
+                        )}
+                      </td>
+                      <td data-label="Total" className="num">
+                        {money(inv.total)}
+                      </td>
+                      <td className="actions">
+                        <div className="row">
+                          <button className="small" onClick={() => viewInvoice(inv.id)}>
+                            View<span className="sr-only"> {inv.invoiceNumber}</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

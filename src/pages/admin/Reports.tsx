@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, download } from '../../api';
-import { ErrorAlert, Loading, Stat } from '../../components/ui';
+import { ErrorAlert, Loading } from '../../components/ui';
 import { addDays, date, money, today } from '../../format';
 import { useAction, useLoad } from '../../hooks';
 import type { ReportSummary } from '../../types';
@@ -13,10 +13,16 @@ export default function Reports() {
   const r = report.data;
 
   return (
-    <div className="stack">
-      <div className="row between">
-        <h1>Reports</h1>
-        <div className="row">
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <div>
+          <span className="eyebrow">Overview</span>
+          <h1>
+            Fleet <span className="accent-text">reports</span>
+          </h1>
+          <p className="muted">Revenue, utilisation and bookings for the chosen dates, from the server's records.</p>
+        </div>
+        <div className="panel-card admin-toolbar report-range" role="group" aria-label="Date range">
           <label>
             From
             <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
@@ -26,11 +32,11 @@ export default function Reports() {
             <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
           </label>
           <button
-            style={{ alignSelf: 'end' }}
+            className="primary"
             disabled={exporter.busy}
             onClick={() => exporter.run(() => download(`/admin/reports/bookings.csv?from=${from}&to=${to}`, `bookings-${from}-${to}.csv`))}
           >
-            Export bookings CSV
+            {exporter.busy ? 'Exporting…' : 'Export bookings CSV'}
           </button>
         </div>
       </div>
@@ -38,17 +44,17 @@ export default function Reports() {
       {report.loading && <Loading />}
       {r && (
         <>
-          <div className="stats">
-            <Stat label="Revenue" value={money(r.revenue)} hint="Payments collected" />
-            <Stat label="Refunds" value={money(r.refunds)} hint="Cancelled before the start" />
-            <Stat label="Balance outstanding" value={money(r.outstandingBalance)} hint="Ended rentals not yet paid in full" />
-            <Stat label="Maintenance cost" value={money(r.maintenanceCost)} />
-            <Stat label="Fleet utilisation" value={`${r.fleetUtilizationPct}%`} hint="Rented scooter-hours" />
-            <Stat label="Bookings created" value={r.bookingsCreated} />
-            <Stat label="New customers" value={r.newCustomers} />
+          <div className="kpi-grid">
+            <Kpi label="Gross revenue" value={money(r.revenue)} hint="Payments collected" accent />
+            <Kpi label="Fleet utilisation" value={`${r.fleetUtilizationPct}%`} hint="Rented scooter-hours" />
+            <Kpi label="Bookings created" value={r.bookingsCreated} />
+            <Kpi label="New customers" value={r.newCustomers} />
+            <Kpi label="Refunds" value={money(r.refunds)} hint="Cancelled before the start" />
+            <Kpi label="Balance outstanding" value={money(r.outstandingBalance)} hint="Ended rentals not yet paid in full" />
+            <Kpi label="Maintenance cost" value={money(r.maintenanceCost)} />
           </div>
 
-          <div className="card stack">
+          <div className="panel-card stack">
             <h2>Daily revenue (rental + fees)</h2>
             <BarChart data={r.revenueByDay} />
             <details>
@@ -75,32 +81,45 @@ export default function Reports() {
           </div>
 
           <div className="grid-2">
-            <div className="card stack">
+            <div className="panel-card stack">
               <h2>Scooter performance</h2>
-              <table>
+              <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Scooter</th>
-                    <th className="num">Bookings</th>
-                    <th className="num">Hours out</th>
-                    <th className="num">Revenue</th>
+                    <th scope="col">Scooter</th>
+                    <th scope="col" className="num">
+                      Bookings
+                    </th>
+                    <th scope="col" className="num">
+                      Hours out
+                    </th>
+                    <th scope="col" className="num">
+                      Revenue
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {r.scooters.map((s) => (
                     <tr key={s.scooterId}>
-                      <td>
-                        {s.code} <span className="muted small">{s.model}</span>
+                      <td data-label="Scooter">
+                        <strong>{s.code}</strong>
+                        <span className="cell-sub">{s.model}</span>
                       </td>
-                      <td className="num">{s.bookings}</td>
-                      <td className="num">{s.rentedHours}</td>
-                      <td className="num">{money(s.revenue)}</td>
+                      <td data-label="Bookings" className="num">
+                        {s.bookings}
+                      </td>
+                      <td data-label="Hours out" className="num">
+                        {s.rentedHours}
+                      </td>
+                      <td data-label="Revenue" className="num">
+                        {money(s.revenue)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="card stack">
+            <div className="panel-card stack">
               <h2>Bookings by status</h2>
               <table>
                 <tbody>
@@ -128,6 +147,16 @@ export default function Reports() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function Kpi({ label, value, hint, accent }: { label: string; value: React.ReactNode; hint?: string; accent?: boolean }) {
+  return (
+    <div className={`kpi${accent ? ' kpi--accent' : ''}`}>
+      <div className="kpi__label">{label}</div>
+      <div className="kpi__value">{value}</div>
+      {hint && <div className="kpi__hint">{hint}</div>}
     </div>
   );
 }
