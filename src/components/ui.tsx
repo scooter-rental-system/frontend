@@ -35,8 +35,14 @@ export function ErrorAlert({ error }: { error: string | null | undefined }) {
   );
 }
 
+/** A loading message with a quiet skeleton bar; announced politely. No artificial delay: it shows only while loading. */
 export function Loading({ what = 'Loading' }: { what?: string }) {
-  return <p className="muted">{what}…</p>;
+  return (
+    <div className="loading-state" role="status">
+      <span className="loading-state__bar skeleton" aria-hidden />
+      <span className="muted">{what}…</span>
+    </div>
+  );
 }
 
 export function FieldError({ message }: { message?: string }) {
@@ -45,7 +51,7 @@ export function FieldError({ message }: { message?: string }) {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="muted">{children}</p>;
+  return <p className="muted empty-note">{children}</p>;
 }
 
 const STAGE_TONE: Record<BookingStage, string> = {
@@ -98,16 +104,19 @@ export function LoadError({ error, onRetry }: { error: string; onRetry: () => vo
   );
 }
 
-/** The Scooter Rent Kandy logo mark: a charcoal scooter on a gold tile (same artwork as public/scooter.svg). */
+/**
+ * The Scooter Rent Kandy logo mark: a scooter on a rounded tile (the artwork of public/scooter.svg). Its colours
+ * come from the theme tokens (see .brand-mark__tile in styles.css).
+ */
 export function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden focusable="false">
-      <rect width="32" height="32" rx="8" fill="#b8860b" />
-      <g fill="none" stroke="#16181d" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect className="brand-mark__tile" width="32" height="32" rx="8" />
+      <g className="brand-mark__glyph" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ fill: 'none' }}>
         <path d="M20 8h3l-3 14" />
         <path d="M9 22h11" />
       </g>
-      <g fill="#16181d">
+      <g className="brand-mark__glyph" style={{ stroke: 'none' }}>
         <circle cx="9" cy="23" r="3" />
         <circle cx="22.5" cy="23" r="3" />
       </g>

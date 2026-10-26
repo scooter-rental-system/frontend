@@ -64,7 +64,9 @@ export default function Home() {
       <section className="hero home-hero" aria-labelledby="home-title">
         <div className="home-hero__content">
           <p className="home-hero__eyebrow">Scooter rental in Kandy, Sri Lanka</p>
-          <h1 id="home-title">Explore Kandy and the hill country on two wheels</h1>
+          <h1 id="home-title">
+            Explore Kandy and the hill country <span className="accent-text">on two wheels</span>
+          </h1>
           <p>
             Book a scooter online, sign the rental agreement digitally and pay securely by card. You pay by the hour and
             kilometre, and you can add camping gear for trips beyond the city.
@@ -90,9 +92,12 @@ export default function Home() {
 
       <section className="stack" id="fleet" aria-labelledby="fleet-title">
         <div className="section-heading">
-          <h2 id="fleet-title" className="home-section-title">
-            Our fleet
-          </h2>
+          <div>
+            <h2 id="fleet-title" className="home-section-title">
+              Our fleet
+            </h2>
+            <p className="muted small">Rates and availability straight from our fleet in Kandy.</p>
+          </div>
           {scooters.data && (
             <p className="muted small" role="status" aria-atomic="true">
               {resultSummary(shown.length, all.length)}

@@ -381,6 +381,11 @@ strong { font-weight: 650; }
 }
 .brand:hover { text-decoration: none; color: var(--on-ink); }
 .brand-mark { width: 32px; height: 32px; flex: none; }
+/* The mark follows the Figma accent: a periwinkle tile on the charcoal header, the accent tile on light forms. */
+.brand-mark__tile  { fill: var(--ink-accent); }
+.brand-mark__glyph { stroke: var(--ink); fill: var(--ink); }
+.auth-logo .brand-mark__tile  { fill: var(--accent); }
+.auth-logo .brand-mark__glyph { stroke: var(--on-accent); fill: var(--on-accent); }
 
 /* Navigation and account controls; inline on desktop, a disclosure panel on small screens. */
 .site-menu {
@@ -1656,9 +1661,8 @@ tbody tr:last-child td { border-bottom: none; }
   text-transform: none;
   font-size: 1rem;
   background: var(--surface-2);
-  border-color: transparent;
 }
-.admin-form label:not(.inline) :is(input, select, textarea):hover { border-color: var(--border-strong); }
+.admin-form label:not(.inline) :is(input, select, textarea):hover { border-color: var(--text-muted); }
 .admin-form label:not(.inline) :is(input, select, textarea):focus { border-color: var(--accent); outline-color: var(--accent); }
 .admin-form__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .admin-form__actions .primary { min-width: 160px; }
@@ -2416,6 +2420,290 @@ fieldset.booking-fieldset { border: 1px solid var(--border); min-width: 0; }
   letter-spacing: 0.03em;
   text-transform: uppercase;
   vertical-align: 1px;
+}
+
+/* ─── Final Figma alignment (customer and public pages) ─────── */
+/* Figma Home v2, Browse & Search v3, Details v2, Booking v2 / Wizard v3, Payment Page v3, Digital Contract v3,
+   User Dashboard v3, Booking History v2 and Registration/Login v3. Tokens only; no new colours. */
+
+.eyebrow,
+.home-hero__eyebrow { text-wrap: balance; }
+
+/* Fields: filled like the Figma, but keeping a visible boundary (WCAG 1.4.11). */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea { background: var(--surface-2); }
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus { outline-color: var(--accent); border-color: var(--accent); }
+.card :is(input, select, textarea):disabled { opacity: 0.7; }
+
+/* Header: periwinkle wordmark, accent underline on the current page, pill account actions. */
+.brand-name { color: var(--ink-accent); font-weight: 800; letter-spacing: -0.03em; }
+.nav a.active { box-shadow: inset 0 -2px 0 var(--ink-accent); color: var(--on-ink); }
+.topbar :where(a, button, .btn):focus-visible { outline-color: var(--ink-accent); }
+@media (max-width: 899px) {
+  .nav a.active { box-shadow: inset 3px 0 0 var(--ink-accent); }
+}
+
+/* Footer: centred wordmark and links, as in the Figma. */
+.site-footer .brand span:last-child { color: var(--ink-accent); font-weight: 800; letter-spacing: -0.03em; }
+.site-footer nav a { color: var(--ink-muted); }
+.site-footer nav a:hover { color: var(--on-ink); }
+@media (min-width: 768px) {
+  .site-footer__inner { align-items: center; }
+  .site-footer .site-footer__legal { text-align: center; }
+}
+
+/* Home hero: a large two-tone heading on a soft accent glow, the scooter art on a tilted panel. */
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(var(--space-6), 6vw, 88px) clamp(var(--space-5), 5vw, 64px);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(60% 80% at 85% 20%, rgb(173 198 255 / 0.12), transparent 70%),
+    radial-gradient(50% 60% at 10% 100%, rgb(255 183 125 / 0.08), transparent 70%),
+    var(--hero-bg);
+}
+.home-hero h1 {
+  font-size: clamp(2.125rem, 1.4rem + 3.2vw, 4rem);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  max-width: 16ch;
+}
+.home-hero h1 .accent-text { color: var(--ink-accent); }
+.hero .home-hero__eyebrow {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.04);
+  color: var(--on-ink);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+.home-hero__facts li::before { background: var(--ink-accent); }
+@media (min-width: 900px) {
+  .home-hero__art {
+    aspect-ratio: 4 / 5;
+    max-width: 340px;
+    border-radius: var(--radius-lg);
+    transform: rotate(3deg);
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.02));
+    box-shadow: var(--shadow-lg);
+    color: var(--ink-accent);
+  }
+}
+.home-section-title { font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem); font-weight: 800; letter-spacing: -0.025em; }
+
+/* Discovery bar: one rounded panel with filled fields. */
+.discovery { border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); }
+
+/* Scooter cards: media on top with the availability pill over it, the rate in the call-to-action colour. */
+.scooter-card { border-radius: var(--radius-lg); padding: var(--space-4); transition: border-color 0.15s, transform 0.15s; }
+.scooter-card:not(.is-unavailable):hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.scooter-card__media { position: relative; }
+.scooter-card__media .scooter-thumb { border-radius: var(--radius); }
+.scooter-card__media > .badge {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+.scooter-card .price,
+.booking-scooter .price { color: var(--brand-strong); font-weight: 800; }
+.scooter-card__foot .btn.primary { min-width: 96px; }
+
+/* How it works: accent numbers. */
+.how-step { border-radius: var(--radius-lg); }
+.how-step::before { background: var(--accent-soft); color: var(--accent); font-weight: 800; }
+.gear-card { border-radius: var(--radius-lg); }
+
+/* Booking stepper (Figma wizard "Step n of 4"): accent for the current step, a check for done ones. */
+.booking-stepper__step { border-radius: var(--radius-pill); padding: 6px var(--space-3) 6px 6px; }
+.booking-stepper__step.is-current { border-color: var(--accent); box-shadow: none; background: var(--accent-soft); }
+.booking-stepper__step.is-current .booking-stepper__marker { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+
+/* Booking form and summary (Figma Booking v2 / Wizard v3). */
+.booking-scooter { border-radius: var(--radius-lg); }
+.booking-scooter h1 { font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; }
+.booking-scooter .scooter-thumb { border-radius: var(--radius); }
+fieldset.booking-fieldset { border-radius: var(--radius-lg); }
+.booking-fieldset > legend { color: var(--accent); font-size: 1.1875rem; }
+.booking-summary { border-radius: var(--radius-lg); }
+.summary-line--total dt { color: var(--accent); }
+.summary-line--total dd { color: var(--text); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+.summary-explain summary { color: var(--accent); }
+.booking-summary__cta { min-height: 52px; font-size: 1.0625rem; font-weight: 800; }
+.qty { border-radius: var(--radius-pill); }
+.booking-mobilebar { border-radius: var(--radius-lg); }
+
+/* Agreement (Figma Digital Contract v3): the terms on a paper-like sheet, the signature beside it. */
+.contract {
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-size: 1rem;
+}
+.checkout-task { border-radius: var(--radius-lg); }
+.checkout-task.is-active { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent), var(--shadow); }
+.checkout-amount { border-radius: var(--radius); padding: var(--space-4); }
+.checkout-amount .price { color: var(--brand-strong); font-size: 1.75rem; font-weight: 800; }
+
+.checkout-heading { font-size: clamp(2rem, 1.4rem + 2.2vw, 3rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; }
+
+/* Payment trust line (Figma Payment Page v3): facts about the real Stripe flow. */
+.checkout-trust {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.checkout-trust li { display: inline-flex; align-items: center; gap: 6px; }
+.checkout-trust li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* Customer dashboard (Figma User Dashboard v3): the current booking as the hero card. */
+.page-header h1 { font-size: clamp(2rem, 1.5rem + 2vw, 2.75rem); }
+.right-now {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  border-left-width: 1px;
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgb(173 198 255 / 0.1), transparent 70%),
+    var(--surface);
+}
+.right-now::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--border-strong);
+}
+.right-now.is-riding::before   { background: var(--success); }
+.right-now.is-balance::before,
+.right-now.is-pay::before      { background: var(--warning); }
+.right-now.is-upcoming::before { background: var(--accent); }
+.right-now__body h3 { font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; }
+.dashboard-account .card,
+.dashboard-facts { border-radius: var(--radius-lg); }
+.dashboard-facts dd { font-size: 1.125rem; font-weight: 800; }
+
+/* Booking history cards (Figma Booking History v2). */
+.booking-card { border-radius: var(--radius-lg); }
+.booking-card__main { gap: var(--space-4); }
+.booking-card__tile {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.booking-card__tile svg { width: 32px; height: auto; }
+.booking-card__info { flex: 1; }
+.booking-card--skeleton .booking-card__main { align-items: center; }
+.filter-tabs button.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* Booking detail. */
+.booking-header { border-radius: var(--radius-lg); }
+.booking-header__main h1 { font-size: clamp(1.75rem, 1.4rem + 1.4vw, 2.25rem); font-weight: 800; }
+.timeline__step { border-radius: var(--radius-pill); }
+.timeline__step.is-current { border-color: var(--accent); }
+.timeline__step.is-current .timeline__dot { border-color: var(--accent); background: var(--accent-soft); }
+.live-rental { border-radius: var(--radius-lg); }
+
+/* Login and Register (Figma Registration/Login v3): a brand panel beside the form on wide screens. */
+.auth-split { align-items: stretch; gap: 0; }
+.auth-aside { display: none; }
+.auth-split .auth-card { border-radius: var(--radius-lg); }
+@media (min-width: 900px) {
+  .auth-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+  }
+  .auth-split--wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); max-width: 1180px; }
+  .auth-split .auth-card { max-width: none; border: none; border-radius: 0; box-shadow: none; }
+  .auth-aside {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    background:
+      radial-gradient(80% 60% at 30% 20%, rgb(173 198 255 / 0.14), transparent 70%),
+      var(--hero-bg);
+    color: var(--on-ink);
+  }
+}
+.auth-aside__art { color: var(--ink-accent); margin-bottom: auto; padding-top: var(--space-5); }
+.auth-aside__art svg { width: 72%; max-width: 280px; }
+.auth-aside__title {
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  max-width: 14ch;
+}
+.auth-aside__title .accent-text { color: var(--ink-accent); }
+.auth-aside__text { color: var(--ink-muted); }
+.auth-aside__facts { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: 0.8125rem; }
+.auth-aside__facts li { display: inline-flex; align-items: center; gap: 6px; }
+.auth-aside__facts li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-accent); }
+.auth-title { font-weight: 800; letter-spacing: -0.03em; }
+.auth-form .btn-primary { min-height: 52px; font-size: 1rem; font-weight: 800; }
+
+/* Shared loading, empty and dialog states. */
+.loading-state { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4) 0; }
+.loading-state__bar { display: block; width: min(240px, 60%); height: 12px; }
+.empty-note { padding: var(--space-4); border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface); }
+.empty-state { border-radius: var(--radius-lg); }
+
+/* Confirmation dialog: a native modal <dialog> (focus moves in, the page behind is inert, Escape cancels). */
+.confirm-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  overflow-wrap: anywhere;
+}
+.confirm-dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+.confirm-dialog__title { font-size: 1.25rem; font-weight: 800; }
+.confirm-dialog__message { margin-top: var(--space-2); color: var(--text-muted); }
+.confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+.confirm-dialog__actions button { min-height: 44px; }
+@media (max-width: 479px) {
+  .confirm-dialog__actions button { flex: 1 1 100%; }
 }
 
 /* ─── Small screens ─────────────────────────────────────────── */
