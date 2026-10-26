@@ -146,7 +146,7 @@ describe('My Bookings', () => {
 
   it('uses the same cards and stage labels as the dashboard', () => {
     const mine = read('pages', 'MyBookings.tsx');
-    assert.match(mine, /import \{ BookingList \} from '\.\.\/components\/BookingCard';/);
+    assert.match(mine, /import \{ BookingList, BookingListSkeleton \} from '\.\.\/components\/BookingCard';/);
     assert.match(mine, /<BookingList bookings=\{shown\} \/>/);
     assert.match(mine, /useCustomerBookings\(\)/);
     // The old table printed humanize(b.stage); every booking page now shows StageBadge (STAGE_LABEL).
@@ -194,7 +194,9 @@ describe('booking detail', () => {
     assert.match(detail, /const isOwner = user\?\.id === b\.customer\.id;/);
     assert.match(detail, /const canCancel = b\.stage === 'AWAITING_PAYMENT' \|\| b\.stage === 'PAYMENT_FAILED' \|\| b\.stage === 'UPCOMING';/);
     assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\);/);
-    assert.match(detail, /if \(!window\.confirm\(msg\)\) return;/);
+    // Phase 6: the accessible dialog replaced window.confirm; the cancel message and the "no" path are unchanged.
+    assert.match(detail, /const ok = await confirm\(\{\s*title: 'Cancel booking\?',\s*message: msg,/);
+    assert.match(detail, /if \(!ok\) return;\s*if \(await cancel\.run\(/);
     assert.match(detail, /await end\.run\(\(\) => api\.put<Booking>\(`\$\{bookingApi\}\/complete`, \{\}\)\);/);
   });
 

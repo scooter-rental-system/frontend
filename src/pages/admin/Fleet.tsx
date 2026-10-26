@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { fleetCounts } from '../../admin';
+import { useConfirm } from '../../useConfirm';
 import { Empty, ErrorAlert, Loading, ScooterThumb, StatusBadge } from '../../components/ui';
 import { humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
@@ -27,6 +28,7 @@ export function Fleet() {
   const addRequested = (location.state as { addScooter?: boolean } | null)?.addScooter === true;
   const [editing, setEditing] = useState<Scooter | 'new' | null>(addRequested ? 'new' : null);
   const action = useAction();
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => {
     if (!addRequested) return;
@@ -42,7 +44,13 @@ export function Fleet() {
 
   // Leaving the fleet is a soft delete (SDS 8.3); history is kept and the scooter can be restored.
   const remove = async (s: Scooter) => {
-    if (!window.confirm(`Remove ${s.code} from the fleet? It will no longer be bookable.`)) return;
+    const ok = await confirm({
+      title: `Remove ${s.code} from the fleet?`,
+      message: 'It will no longer be bookable. Its history is kept and it can be restored.',
+      confirmLabel: 'Remove scooter',
+      destructive: true,
+    });
+    if (!ok) return;
     if (await action.run(() => api.delete(`/admin/scooters/${s.id}`))) list.reload();
   };
 
@@ -52,6 +60,7 @@ export function Fleet() {
 
   return (
     <div className="admin-page">
+      {dialog}
       <div className="admin-page__header">
         <div>
           <span className="eyebrow">Fleet management</span>

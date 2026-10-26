@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
+import { useConfirm } from '../useConfirm';
 import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
@@ -96,6 +97,7 @@ export default function BookingDetail() {
   );
   const cancel = useAction();
   const end = useAction();
+  const { confirm, dialog } = useConfirm();
   const paymentReturn = usePaymentReturn(id, booking.setData, invoices.reload);
 
   if (booking.loading) return <Loading />;
@@ -113,19 +115,33 @@ export default function BookingDetail() {
   const doCancel = async () => {
     const msg =
       b.status === 'ACTIVE' ? 'Cancel this booking? You will receive a full refund.' : 'Cancel this reservation?';
-    if (!window.confirm(msg)) return;
+    const ok = await confirm({
+      title: 'Cancel booking?',
+      message: msg,
+      confirmLabel: 'Cancel booking',
+      cancelLabel: 'Keep booking',
+      destructive: true,
+    });
+    if (!ok) return;
     if (await cancel.run(() => api.post<Booking>(`${bookingApi}/cancel`))) refresh();
   };
 
   // Ending charges the remaining balance; if that fails the booking stays ACTIVE with the balance due.
   const doEnd = async () => {
-    if (!window.confirm('End the rental now? The final total is calculated and the balance charged to your card.')) return;
+    const ok = await confirm({
+      title: 'End the rental now?',
+      message: 'The final total is calculated and the balance charged to your card.',
+      confirmLabel: 'End rental',
+      cancelLabel: 'Keep riding',
+    });
+    if (!ok) return;
     await end.run(() => api.put<Booking>(`${bookingApi}/complete`, {}));
     refresh();
   };
 
   return (
     <div className="booking-page">
+      {dialog}
       {/* Back from Checkout: shown only once the backend reports the booking ACTIVE (payment confirmed). */}
       {params.get('paid') && b.status === 'ACTIVE' && (
         <>

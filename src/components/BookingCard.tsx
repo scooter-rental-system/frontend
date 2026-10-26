@@ -5,7 +5,7 @@ import { dateTime, humanize, money } from '../format';
 import { cardAction } from '../rental';
 import { bookingActionPath } from '../routes';
 import type { Booking } from '../types';
-import { DetailRow, StageBadge } from './ui';
+import { DetailRow, ScooterIllustration, StageBadge } from './ui';
 
 /** What the customer has paid or owes, depending on where the booking is. */
 function amountLine(b: Booking): string {
@@ -25,6 +25,9 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
   return (
     <li className="booking-card">
       <div className="booking-card__main">
+        <span className="booking-card__tile" aria-hidden>
+          <ScooterIllustration />
+        </span>
         <div className="booking-card__info">
           <div className="booking-card__title">
             <strong>{b.scooter.model}</strong>
@@ -105,6 +108,31 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
         </dl>
       )}
     </li>
+  );
+}
+
+/** Placeholder cards while bookings load; the label is announced once, the shapes are hidden from screen readers. */
+export function BookingListSkeleton({ label, count = 3 }: { label: string; count?: number }) {
+  return (
+    <div className="booking-skeleton">
+      <p className="sr-only" role="status">
+        {label}…
+      </p>
+      <ul className="booking-list" aria-hidden>
+        {Array.from({ length: count }, (_, i) => (
+          <li key={i} className="booking-card booking-card--skeleton">
+            <div className="booking-card__main">
+              <span className="booking-card__tile skeleton" />
+              <div className="booking-card__info" style={{ flex: 1 }}>
+                <div className="skeleton skeleton--line" style={{ width: '45%' }} />
+                <div className="skeleton skeleton--line" style={{ width: '70%' }} />
+              </div>
+              <div className="skeleton skeleton--button" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

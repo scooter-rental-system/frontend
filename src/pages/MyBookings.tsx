@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { BookingList } from '../components/BookingCard';
-import { LoadError, Loading } from '../components/ui';
+import { BookingList, BookingListSkeleton } from '../components/BookingCard';
+import { LoadError } from '../components/ui';
 import { byCategory, CATEGORY_LABEL, categoryCounts, type CategoryFilter } from '../rental';
 import { useCustomerBookings } from '../useCustomerBookings';
 
@@ -31,11 +31,14 @@ export default function MyBookings() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>My bookings</h1>
+        <span className="eyebrow">Bookings</span>
+        <h1>
+          My <span className="accent-text">bookings</span>
+        </h1>
         <p className="muted">Every booking you have made, newest activity first within each group.</p>
       </div>
 
-      {loading && !data && <Loading what="Loading your bookings" />}
+      {loading && !data && <BookingListSkeleton label="Loading your bookings" />}
       {error && <LoadError error={`We couldn't load your bookings. ${error}`} onRetry={reload} />}
 
       {data && counts && (

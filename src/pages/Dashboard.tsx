@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { groupBookings, needsAction, summarize } from '../bookings';
-import { BookingList } from '../components/BookingCard';
-import { Empty, LoadError, Loading, StageBadge } from '../components/ui';
+import { BookingList, BookingListSkeleton } from '../components/BookingCard';
+import { Empty, LoadError, StageBadge } from '../components/ui';
 import { dateTime, money } from '../format';
 import { cardAction, rightNow, STAGE_HELP } from '../rental';
 import { bookingActionPath } from '../routes';
@@ -37,11 +37,14 @@ export default function Dashboard() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Hi, {user.fullName.split(' ')[0]}</h1>
+        <span className="eyebrow">Dashboard</span>
+        <h1>
+          Hi, <span className="accent-text">{user.fullName.split(' ')[0]}</span>
+        </h1>
         <p className="muted">Your scooter rentals at a glance.</p>
       </div>
 
-      {loading && !data && <Loading what="Loading your bookings" />}
+      {loading && !data && <BookingListSkeleton label="Loading your bookings" />}
       {error && <LoadError error={`We couldn't load your bookings. ${error}`} onRetry={reload} />}
 
       {now && groups && summary && (

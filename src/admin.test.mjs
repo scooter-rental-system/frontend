@@ -214,7 +214,8 @@ describe('admin pages keep their behaviour', () => {
     const bookings = page('Bookings.tsx');
     assert.match(bookings, /api\.put\(`\/bookings\/\$\{encodeURIComponent\(b\.id\)\}\/complete`, \{\}\)/);
     assert.match(bookings, /api\.post\(`\/bookings\/\$\{encodeURIComponent\(b\.id\)\}\/cancel`\)/);
-    assert.match(bookings, /window\.confirm/);
+    assert.match(bookings, /await confirm\(\{/);
+    assert.doesNotMatch(bookings, /window\.confirm/);
   });
 
   it('keeps the maintenance lifecycle endpoints', () => {

@@ -47,6 +47,12 @@ export default function Checkout() {
 
   return (
     <div className="booking-page">
+      <div className="page-header">
+        <span className="eyebrow">Secure checkout · {b.reference}</span>
+        <p className="checkout-heading">
+          Complete your <span className="accent-text">booking</span>
+        </p>
+      </div>
       <BookingStepper current={checkoutStep(c.signed)} />
 
       <div className="booking-layout">
@@ -134,6 +140,11 @@ export default function Checkout() {
                 confirmation before moving on.
               </p>
             )}
+            <ul className="checkout-trust" aria-label="About this payment">
+              <li>Processed by Stripe</li>
+              <li>Card details never reach our servers</li>
+              <li>Booked only once the payment succeeds</li>
+            </ul>
           </section>
         </div>
 
