@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
-import { ErrorAlert, Loading, Stat } from '../../components/ui';
+import { ErrorAlert, Loading } from '../../components/ui';
 import { date, dateTime, money, today } from '../../format';
 import { useLoad } from '../../hooks';
+import { dashboardKpis, fleetBreakdown, initials } from '../../admin';
+import { SPEED_LIMIT_KMH } from '../../rental';
 import { adminBookingPath } from '../../routes';
 import type { Booking, Dashboard as DashboardData, SpeedViolation } from '../../types';
 
 type Flag = { text: string; tone: 'red' | 'amber' };
 
-// Each step's count is the length of its own list, so the tiles and lists always agree.
+// Figma "Admin Dashboard v3": metric cards, work queues, a critical-alerts column and live fleet status. Every
+// figure comes from GET /admin/dashboard or the booking lists; there are no derived trends or invented metrics.
+// Each queue's count is the length of its own list, so the cards and lists always agree.
 export default function Dashboard() {
   const stats = useLoad(() => api.get<DashboardData>('/admin/dashboard'));
   const pending = useLoad(() => api.get<Booking[]>('/admin/bookings?status=PENDING'));
   const active = useLoad(() => api.get<Booking[]>('/admin/bookings?status=ACTIVE'));
 
-  if (stats.loading) return <Loading />;
+  if (stats.loading && !stats.data) return <Loading />;
   if (!stats.data) return <ErrorAlert error={stats.error} />;
   const d = stats.data;
 
@@ -29,58 +33,114 @@ export default function Dashboard() {
     b.stage === 'PAYMENT_FAILED' ? { text: 'Payment failed', tone: 'red' } : null;
   const dueFlag = (b: Booking): Flag | null => ({ text: `Due ${money(b.payment?.balanceDue)}`, tone: 'red' });
 
+  const refresh = () => {
+    stats.reload();
+    pending.reload();
+    active.reload();
+  };
+
   return (
-    <div className="stack">
-      <div>
-        <h1 style={{ marginBottom: 4 }}>Dashboard</h1>
-        <div className="muted">Today, {date(today())}</div>
-      </div>
-
-      <section className="stack">
+    <div className="admin-page">
+      <div className="admin-page__header">
         <div>
-          <h2 style={{ margin: 0 }}>Today's work</h2>
-          <div className="muted small">In rental order: payment → start → on the road → ended. Customers end their own rentals.</div>
+          <span className="eyebrow">Today, {date(today())}</span>
+          <h1>
+            Operations <span className="accent-text">overview</span>
+          </h1>
+          <p className="muted">Bookings, payments and the fleet as the server reports them now.</p>
         </div>
-        <div className="stats">
-          <Stat label="1. Awaiting payment" value={awaitingPayment.length} hint="Booked, not paid yet" />
-          <Stat label="2. Starting soon" value={upcoming.length} hint="Paid, start time ahead" />
-          <Stat label="3. On the road" value={inProgress.length} hint="Rental in progress" />
-          <Stat
-            label="4. Balance due"
-            value={balanceDue.length}
-            hint={balanceDue.length > 0 ? 'Ended, card charge failed: follow up' : 'Nothing outstanding'}
-          />
+        <div className="admin-page__actions">
+          <button type="button" onClick={refresh} disabled={stats.loading}>
+            {stats.loading ? 'Refreshing…' : 'Refresh'}
+          </button>
         </div>
-        <div className="grid-2">
-          <BookingList title="1. Awaiting payment" bookings={awaitingPayment} flag={paymentFlag} empty="No unpaid bookings." />
-          <BookingList title="2. Starting soon" bookings={upcoming} empty="No upcoming rentals." />
-          <BookingList title="3. On the road" bookings={inProgress} empty="No rentals in progress." />
-          <BookingList title="4. Balance due" bookings={balanceDue} flag={dueFlag} empty="No balances due." />
+      </div>
+      <ErrorAlert error={stats.error ?? pending.error ?? active.error} />
+
+      <section aria-labelledby="overview-title">
+        <h2 id="overview-title" className="sr-only">
+          Overview
+        </h2>
+        <div className="kpi-grid">
+          {dashboardKpis(d).map((k) => (
+            <div key={k.label} className={`kpi${k.attention ? ' is-attention' : ''}`}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__value">{k.value}</div>
+              <div className="kpi__hint">
+                {k.hint}
+                {k.attention && <span className="kpi__flag"> · Needs attention</span>}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      <SpeedViolations />
+      <div className="dash-grid">
+        <section className="panel-card" aria-labelledby="work-title">
+          <div className="panel-card__head">
+            <div>
+              <h2 id="work-title">Today&apos;s work</h2>
+              <p className="muted small">In rental order: payment → start → on the road → ended. Customers end their own rentals.</p>
+            </div>
+            <Link to="/admin/bookings">All bookings</Link>
+          </div>
+          <div className="queue-grid">
+            <BookingQueue title="1. Awaiting payment" bookings={awaitingPayment} flag={paymentFlag} empty="No unpaid bookings." />
+            <BookingQueue title="2. Starting soon" bookings={upcoming} empty="No upcoming rentals." />
+            <BookingQueue title="3. On the road" bookings={inProgress} empty="No rentals in progress." />
+            <BookingQueue title="4. Balance due" bookings={balanceDue} flag={dueFlag} empty="No balances due." />
+          </div>
+        </section>
 
-      <section className="stack">
-        <h2 style={{ margin: 0 }}>Fleet</h2>
-        <div className="stats">
-          <Stat label="Available" value={d.fleetByStatus.AVAILABLE ?? 0} hint="In the yard, bookable" />
-          <Stat label="Rented" value={d.fleetByStatus.RENTED ?? 0} hint="On a paid booking" />
-          <Stat
-            label="In workshop"
-            value={d.fleetByStatus.MAINTENANCE ?? 0}
-            hint={`${d.openMaintenance} open maintenance job${d.openMaintenance === 1 ? '' : 's'}`}
-          />
-        </div>
-      </section>
+        <div className="dash-side">
+          <SpeedViolations />
 
-      <section className="stack">
-        <h2 style={{ margin: 0 }}>Business</h2>
-        <div className="stats">
-          <Stat label="Revenue, last 30 days" value={money(d.revenueLast30Days)} hint="Payments collected" />
-          <Stat label="Registered customers" value={d.customers} hint="All time" />
+          <section className="panel-card" aria-labelledby="fleet-title">
+            <div className="panel-card__head">
+              <h2 id="fleet-title">Fleet status</h2>
+              <Link to="/admin/fleet">Manage scooters</Link>
+            </div>
+            <ul className="meter-list">
+              {fleetBreakdown(d).map((f) => (
+                <li key={f.label}>
+                  <div className="meter__row">
+                    <span>{f.label}</span>
+                    <span>
+                      {f.count} · {f.share}%
+                    </span>
+                  </div>
+                  <div className={`meter ${f.tone === 'blue' ? '' : f.tone}`} aria-hidden>
+                    <span style={{ width: `${f.share}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="muted small" style={{ marginTop: 'var(--space-4)' }}>
+              {d.openMaintenance} open maintenance job{d.openMaintenance === 1 ? '' : 's'} ·{' '}
+              <Link to="/admin/maintenance">Maintenance</Link>
+            </p>
+          </section>
+
+          <section className="panel-card" aria-labelledby="business-title">
+            <div className="panel-card__head">
+              <h2 id="business-title">Business</h2>
+              <Link to="/admin/reports">Open reports</Link>
+            </div>
+            <div className="kpi-grid">
+              <div className="kpi kpi--accent">
+                <div className="kpi__label">Revenue, last 30 days</div>
+                <div className="kpi__value">{money(d.revenueLast30Days)}</div>
+                <div className="kpi__hint">Payments collected</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi__label">Registered customers</div>
+                <div className="kpi__value">{d.customers}</div>
+                <div className="kpi__hint">All time</div>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
@@ -111,36 +171,44 @@ function SpeedViolations() {
   }, []);
 
   return (
-    <section className="card stack" aria-labelledby="speed-violations-title">
-      <div className="row between">
-        <h2 id="speed-violations-title" style={{ margin: 0 }}>
-          Speed violations <span className="muted small">(over 60 km/h)</span>
-        </h2>
-        <Link to="/admin/gps" className="small">
-          Live GPS
-        </Link>
+    <section className="panel-card" aria-labelledby="speed-violations-title">
+      <div className="panel-card__head">
+        <h2 id="speed-violations-title">Speed violations</h2>
+        <span className="live-pill">Over {SPEED_LIMIT_KMH} km/h</span>
       </div>
+      <p className="muted small">Recorded by the server from GPS reports; the latest 10, refreshed every 30 seconds.</p>
       <ErrorAlert error={error} />
-      <div aria-live="polite" aria-relevant="additions" className="stack">
+      <div aria-live="polite" aria-relevant="additions" style={{ marginTop: 'var(--space-3)' }}>
         {items?.length === 0 && <p className="muted">No speed violations recorded.</p>}
-        {items?.map((v) => (
-          <div key={v.id} className="row between">
-            <div>
-              <strong>{v.scooterCode}</strong> · {v.scooterModel} ({v.plateNumber})
-              <div className="muted small">
-                {dateTime(v.recordedAt)} · {v.bookingReference ? `${v.bookingReference}, ${v.riderName}` : 'not on a rental'} ·{' '}
-                {v.latitude}, {v.longitude}
-              </div>
-            </div>
-            <span className="badge red">{Math.round(v.speedKmh)} km/h</span>
-          </div>
-        ))}
+        {items && items.length > 0 && (
+          <ul className="alert-feed">
+            {items.map((v) => (
+              <li key={v.id} className="alert-card">
+                <span className="alert-card__title">
+                  {v.scooterCode} · {Math.round(v.speedKmh)} km/h
+                </span>
+                <span className="alert-card__meta">
+                  {v.scooterModel} ({v.plateNumber}) · {v.bookingReference ? `${v.bookingReference}, ${v.riderName}` : 'not on a rental'}
+                </span>
+                <span className="alert-card__foot">
+                  <span className="alert-card__meta">
+                    {dateTime(v.recordedAt)} · {v.latitude}, {v.longitude}
+                  </span>
+                  <span className="badge red">Over limit</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+      <p className="small" style={{ marginTop: 'var(--space-3)' }}>
+        <Link to="/admin/gps">Open live GPS</Link>
+      </p>
     </section>
   );
 }
 
-function BookingList({
+function BookingQueue({
   title,
   bookings,
   empty,
@@ -152,30 +220,37 @@ function BookingList({
   flag?: (b: Booking) => Flag | null;
 }) {
   return (
-    <div className="card stack">
-      <div className="row between">
-        <h3 style={{ margin: 0 }}>
-          {title} <span className="muted">({bookings.length})</span>
+    <div className="queue">
+      <div className="queue__head">
+        <h3>
+          {title}
+          <span className="queue__count">{bookings.length}</span>
         </h3>
-        <Link to="/admin/bookings" className="small">
-          All bookings
-        </Link>
       </div>
-      {bookings.length === 0 && <p className="muted">{empty}</p>}
-      {bookings.map((b) => {
-        const f = flag?.(b);
-        return (
-          <div key={b.id} className="row between">
-            <div>
-              <strong>{b.scooter.code}</strong> · {b.customer.fullName}
-              <div className="muted small">
-                <Link to={adminBookingPath(b.id)}>{b.reference}</Link> · from {dateTime(b.startTime)}
-              </div>
-            </div>
-            {f && <span className={`badge ${f.tone}`}>{f.text}</span>}
-          </div>
-        );
-      })}
+      {bookings.length === 0 && <p className="muted small">{empty}</p>}
+      {bookings.length > 0 && (
+        <ul className="queue__list">
+          {bookings.map((b) => {
+            const f = flag?.(b);
+            return (
+              <li key={b.id} className="queue__item">
+                <div className="queue__who">
+                  <span className="avatar" aria-hidden>
+                    {initials(b.customer.fullName)}
+                  </span>
+                  <div>
+                    <strong>{b.customer.fullName}</strong> · {b.scooter.code}
+                    <div className="muted small">
+                      <Link to={adminBookingPath(b.id)}>{b.reference}</Link> · from {dateTime(b.startTime)}
+                    </div>
+                  </div>
+                </div>
+                {f && <span className={`badge ${f.tone}`}>{f.text}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

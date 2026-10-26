@@ -34,24 +34,24 @@ export default function App() {
         <Route path="bookings/:id/checkout" element={<RequireAuth customer><Checkout /></RequireAuth>} />
         <Route path="profile" element={<RequireAuth customer><Profile /></RequireAuth>} />
 
-        {/* Admin */}
-        <Route path="admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="bookings" element={<Bookings />} />
-          {/* The same booking page as customers see; the backend lets admins read any booking. */}
-          <Route path="bookings/:id" element={<BookingDetail />} />
-          <Route path="fleet" element={<Fleet />} />
-          <Route path="gps" element={<Gps />} />
-          <Route path="maintenance" element={<Maintenance />} />
-          <Route path="gear" element={<Gear />} />
-          <Route path="billing" element={<Billing />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="notifications" element={<NotificationsAdmin />} />
-          <Route path="reports" element={<Reports />} />
-        </Route>
-
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+
+      {/* Admin: its own console shell (sidebar and top bar), without the public header and footer. */}
+      <Route path="admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="bookings" element={<Bookings />} />
+        {/* The same booking page as customers see; the backend lets admins read any booking. */}
+        <Route path="bookings/:id" element={<BookingDetail />} />
+        <Route path="fleet" element={<Fleet />} />
+        <Route path="gps" element={<Gps />} />
+        <Route path="maintenance" element={<Maintenance />} />
+        <Route path="gear" element={<Gear />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="notifications" element={<NotificationsAdmin />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
     </Routes>
   );

@@ -45,7 +45,8 @@ const contrast = (a, b) => {
 describe('design tokens', () => {
   const ROLES = [
     '--bg', '--surface', '--surface-2', '--border', '--text', '--text-muted',
-    '--brand', '--brand-strong', '--on-brand', '--ink', '--on-ink',
+    '--brand', '--brand-strong', '--on-brand', '--accent', '--accent-soft', '--on-accent',
+    '--ink', '--on-ink', '--ink-accent',
     '--success', '--success-soft', '--success-text',
     '--warning', '--warning-soft', '--warning-text',
     '--danger', '--danger-soft', '--danger-text',
@@ -77,6 +78,8 @@ describe('design tokens', () => {
       ['--brand-strong', '--surface'], ['--brand-strong', '--bg'],
       ['--on-ink', '--ink'], ['--ink-muted', '--ink'], ['--on-ink', '--hero-bg'], ['--ink-muted', '--hero-bg'],
       ['--text', '--brand-soft'],
+      ['--accent', '--surface'], ['--accent', '--bg'], ['--accent', '--surface-2'], ['--accent', '--accent-soft'],
+      ['--text', '--accent-soft'], ['--on-accent', '--accent'], ['--ink-accent', '--ink'],
       ['--success-text', '--success-soft'], ['--warning-text', '--warning-soft'],
       ['--danger-text', '--danger-soft'], ['--info-text', '--info-soft'],
       ['--danger-text', '--surface'],
@@ -93,7 +96,15 @@ describe('design tokens', () => {
     // #b8860b on white is ~3.3:1: fine as a fill or focus ring, not as text.
     assert.ok(contrast(LIGHT['--brand'], LIGHT['--surface']) < 4.5);
     assert.doesNotMatch(rule('a'), /var\(--brand\)/);
-    assert.match(rule('a'), /color:\s*var\(--brand-strong\)/);
+    // Links use the Figma accent, which is checked for AA text contrast above.
+    assert.match(rule('a'), /color:\s*var\(--accent\)/);
+  });
+
+  it('follows the Figma palette in Dark: charcoal surfaces, peach call to action, periwinkle accent', () => {
+    assert.equal(DARK['--bg'], '#131313');
+    assert.equal(DARK['--brand'], '#ffb77d');
+    assert.equal(DARK['--accent'], '#adc6ff');
+    assert.ok(luminance(DARK['--surface']) < 0.02, 'dark surfaces stay charcoal');
   });
 
   it('keeps focus rings at 3:1 or better against the page (WCAG non-text contrast)', () => {
@@ -184,7 +195,8 @@ describe('application shell', () => {
   it('labels the main, footer and admin navigation landmarks', () => {
     assert.match(layout, /<nav className="nav" aria-label="Main">/);
     assert.match(layout, /<nav aria-label="Footer">/);
-    assert.match(layout, /<nav className="sidebar" aria-label="Admin sections">/);
+    // Phase 5: the admin nav also opens as a drawer on small screens (id + is-open).
+    assert.match(layout, /<nav id="admin-nav" className=\{`sidebar\$\{open \? ' is-open' : ''\}`\} aria-label="Admin sections">/);
   });
 
   it('collapses navigation behind an accessible menu button on small screens', () => {

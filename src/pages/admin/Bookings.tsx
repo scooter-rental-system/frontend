@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
-import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
+import { Empty, ErrorAlert, Loading, StageBadge } from '../../components/ui';
 import { dateTime, humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
+import { initials } from '../../admin';
+import { AdminIcon } from '../../components/AdminIcon';
 import { adminBookingPath } from '../../routes';
-import type { Booking, BookingStatus } from '../../types';
+import type { Booking, BookingStatus, Dashboard } from '../../types';
 
 const STATUSES: (BookingStatus | '')[] = ['', 'PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
 
@@ -13,6 +15,8 @@ export default function Bookings() {
   const [status, setStatus] = useState<BookingStatus | ''>('');
   const [search, setSearch] = useState('');
   const list = useLoad(() => api.get<Booking[]>(`/admin/bookings${status ? `?status=${status}` : ''}`), [status]);
+  // The summary cards use the server's own counts, not the filtered list below.
+  const summary = useLoad(() => api.get<Dashboard>('/admin/dashboard'));
   const action = useAction();
 
   const q = search.trim().toLowerCase();
@@ -27,97 +31,170 @@ export default function Bookings() {
   // The customer normally ends their own rental; an admin can do it for them (e.g. scooter left at the office).
   const endRental = async (b: Booking) => {
     if (!window.confirm(`End ${b.reference} for ${b.customer.fullName}? The final total is charged to their card.`)) return;
-    await action.run(() => api.put(`/bookings/${b.id}/complete`, {}));
+    await action.run(() => api.put(`/bookings/${encodeURIComponent(b.id)}/complete`, {}));
     list.reload();
+    summary.reload();
   };
 
   const cancel = async (b: Booking) => {
     const msg = b.status === 'ACTIVE' ? `Cancel ${b.reference}? The customer is refunded in full.` : `Cancel ${b.reference}?`;
     if (!window.confirm(msg)) return;
-    if (await action.run(() => api.post(`/bookings/${b.id}/cancel`))) list.reload();
+    if (await action.run(() => api.post(`/bookings/${encodeURIComponent(b.id)}/cancel`))) {
+      list.reload();
+      summary.reload();
+    }
   };
 
   return (
-    <div className="stack">
-      <h1>Bookings</h1>
-      <div className="row">
-        <select value={status} onChange={(e) => setStatus(e.target.value as BookingStatus | '')} aria-label="Status filter">
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s ? s.toLowerCase() : 'All statuses'}
-            </option>
-          ))}
-        </select>
-        <input
-          type="search"
-          aria-label="Search bookings"
-          placeholder="Search reference, customer, scooter"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <div>
+          <span className="eyebrow">Rentals</span>
+          <h1>
+            Bookings <span className="accent-text">registry</span>
+          </h1>
+          <p className="muted">Every booking, newest first. Open a reference for its full detail, tracking and invoices.</p>
+        </div>
       </div>
-      <ErrorAlert error={list.error ?? action.error} />
-      {list.loading && <Loading />}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Reference</th>
-              <th>Customer</th>
-              <th>Scooter</th>
-              <th>Started / ended</th>
-              <th>Status</th>
-              <th className="num">Total</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((b) => (
-              <tr key={b.id}>
-                <td>
-                  <Link to={adminBookingPath(b.id)}>{b.reference}</Link>
-                </td>
-                <td>
-                  {b.customer.fullName}
-                  <div className="muted small">{b.customer.phone}</div>
-                </td>
-                <td>
-                  {b.scooter.code}
-                  <div className="muted small">{b.scooter.model}</div>
-                </td>
-                <td>
-                  {dateTime(b.startTime)}
-                  {b.endTime && <div className="muted small">→ {dateTime(b.endTime)}</div>}
-                </td>
-                <td>
-                  <StatusBadge status={b.status} />
-                  <div className="muted small">{humanize(b.stage)}</div>
-                  {b.stage === 'BALANCE_DUE' && (
-                    <div className="badge red">Due {money(b.payment?.balanceDue)}</div>
-                  )}
-                </td>
-                <td className="num">
-                  {b.totalCost != null ? money(b.totalCost) : b.payment ? <span className="muted">paid {money(b.payment.amount)}</span> : '—'}
-                </td>
-                <td className="right">
-                  <div className="row" style={{ justifyContent: 'flex-end' }}>
-                    {b.stage === 'IN_PROGRESS' && (
-                      <button className="small primary" disabled={action.busy} onClick={() => endRental(b)}>
-                        End rental
-                      </button>
-                    )}
-                    {(b.stage === 'AWAITING_PAYMENT' || b.stage === 'PAYMENT_FAILED' || b.stage === 'UPCOMING') && (
-                      <button className="small danger" disabled={action.busy} onClick={() => cancel(b)}>
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+
+      {summary.data && (
+        <section aria-label="Bookings needing action" className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi__label">On the road</div>
+            <div className="kpi__value">{summary.data.activeRentals}</div>
+            <div className="kpi__hint">Rentals in progress</div>
+          </div>
+          <div className={`kpi${summary.data.pendingPayment > 0 ? ' is-attention' : ''}`}>
+            <div className="kpi__label">Awaiting payment</div>
+            <div className="kpi__value">{summary.data.pendingPayment}</div>
+            <div className="kpi__hint">Booked, not paid</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__label">Upcoming</div>
+            <div className="kpi__value">{summary.data.upcoming}</div>
+            <div className="kpi__hint">Paid, not started</div>
+          </div>
+          <div className={`kpi${summary.data.balanceDue > 0 ? ' is-attention' : ''}`}>
+            <div className="kpi__label">Balance due</div>
+            <div className="kpi__value">{summary.data.balanceDue}</div>
+            <div className="kpi__hint">Ended, charge failed</div>
+          </div>
+        </section>
+      )}
+
+      <div className="admin-toolbar">
+        <label>
+          Status
+          <select value={status} onChange={(e) => setStatus(e.target.value as BookingStatus | '')}>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s ? humanize(s) : 'All statuses'}
+              </option>
             ))}
-          </tbody>
-        </table>
+          </select>
+        </label>
+        <label>
+          Search
+          <input
+            type="search"
+            aria-label="Search bookings"
+            placeholder="Search reference, customer, scooter"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        {list.data && (
+          <span className="muted small admin-toolbar__count" role="status">
+            {rows.length} of {list.data.length}
+          </span>
+        )}
       </div>
+
+      <ErrorAlert error={list.error ?? summary.error ?? action.error} />
+      {list.loading && <Loading what="Loading bookings" />}
+      {list.data && rows.length === 0 && <Empty>No bookings match.</Empty>}
+      {rows.length > 0 && (
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">Customer</th>
+                <th scope="col">Reference</th>
+                <th scope="col">Scooter</th>
+                <th scope="col">Started / ended</th>
+                <th scope="col">Stage</th>
+                <th scope="col" className="num">
+                  Total
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr key={b.id}>
+                  <td data-label="Customer">
+                    <div className="cell-person">
+                      <span className="avatar" aria-hidden>
+                        {initials(b.customer.fullName)}
+                      </span>
+                      <div>
+                        <strong>{b.customer.fullName}</strong>
+                        <span className="cell-sub">{b.customer.phone}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td data-label="Reference">
+                    <Link to={adminBookingPath(b.id)}>{b.reference}</Link>
+                  </td>
+                  <td data-label="Scooter">
+                    <div className="cell-scooter">
+                      <span className="scooter-tile" aria-hidden>
+                        <AdminIcon name="scooter" />
+                      </span>
+                      <div>
+                        <strong>{b.scooter.code}</strong>
+                        <span className="cell-sub">{b.scooter.model}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td data-label="Started / ended">
+                    {dateTime(b.startTime)}
+                    {b.endTime && <span className="cell-sub">→ {dateTime(b.endTime)}</span>}
+                  </td>
+                  <td data-label="Stage">
+                    <StageBadge stage={b.stage} status={b.status} />
+                    {b.stage === 'BALANCE_DUE' && <span className="cell-sub">Due {money(b.payment?.balanceDue)}</span>}
+                  </td>
+                  <td data-label="Total" className="num">
+                    {b.totalCost != null ? money(b.totalCost) : b.payment ? <span className="muted">paid {money(b.payment.amount)}</span> : '—'}
+                  </td>
+                  <td className="actions">
+                    <div className="row">
+                      {b.stage === 'IN_PROGRESS' && (
+                        <button className="small primary" disabled={action.busy} onClick={() => endRental(b)}>
+                          End rental
+                        </button>
+                      )}
+                      {(b.stage === 'AWAITING_PAYMENT' || b.stage === 'PAYMENT_FAILED' || b.stage === 'UPCOMING') && (
+                        <button className="small danger" disabled={action.busy} onClick={() => cancel(b)}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="table-foot">
+            <span>
+              Showing {rows.length} of {list.data?.length ?? 0} bookings
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../../api';
+import { CHANNEL_LABEL, initials } from '../../admin';
 import { Empty, ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { date, dateTime } from '../../format';
 import { useAction, useLoad } from '../../hooks';
@@ -21,61 +22,91 @@ export function Customers() {
   };
 
   return (
-    <div className="stack">
-      <h1>Customers</h1>
-      <input
-        type="search"
-        aria-label="Search customers"
-        placeholder="Search name, email, phone"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ maxWidth: 360 }}
-      />
-      <ErrorAlert error={list.error ?? action.error} />
-      {list.loading && <Loading />}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Contact</th>
-              <th>Country</th>
-              <th>ID / Licence</th>
-              <th>Joined</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((u) => (
-              <tr key={u.id}>
-                <td>
-                  {u.fullName}
-                  {!u.active && (
-                    <div>
-                      <span className="badge red">Blocked</span>
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {u.email}
-                  <div className="muted small">{u.phone}</div>
-                </td>
-                <td>{u.country ?? '—'}</td>
-                <td className="small">
-                  {u.idDocumentNumber ?? '—'}
-                  <div className="muted">{u.drivingLicenseNo ?? 'No licence on file'}</div>
-                </td>
-                <td>{date(u.createdAt)}</td>
-                <td className="right">
-                  <button className={`small ${u.active ? 'danger' : ''}`} disabled={action.busy} onClick={() => toggle(u)}>
-                    {u.active ? 'Block' : 'Unblock'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <div>
+          <span className="eyebrow">People</span>
+          <h1>Customers</h1>
+          <p className="muted">Registered customer accounts. Blocking stops a customer from signing in and booking.</p>
+        </div>
       </div>
+      <div className="admin-toolbar">
+        <label>
+          Search
+          <input
+            type="search"
+            aria-label="Search customers"
+            placeholder="Search name, email, phone"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        {list.data && (
+          <span className="muted small admin-toolbar__count" role="status">
+            {rows.length} of {list.data.length}
+          </span>
+        )}
+      </div>
+      <ErrorAlert error={list.error ?? action.error} />
+      {list.loading && <Loading what="Loading customers" />}
+      {list.data && rows.length === 0 && <Empty>No customers match.</Empty>}
+      {rows.length > 0 && (
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Contact</th>
+                <th scope="col">Country</th>
+                <th scope="col">ID / Licence</th>
+                <th scope="col">Joined</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((u) => (
+                <tr key={u.id}>
+                  <td data-label="Name">
+                    <div className="cell-person">
+                      <span className="avatar" aria-hidden>
+                        {initials(u.fullName)}
+                      </span>
+                      <div>
+                        <strong>{u.fullName}</strong>
+                        {!u.active && (
+                          <span className="cell-sub">
+                            <span className="badge red">Blocked</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td data-label="Contact">
+                    {u.email}
+                    <span className="cell-sub">{u.phone}</span>
+                  </td>
+                  <td data-label="Country">{u.country ?? '—'}</td>
+                  <td data-label="ID / Licence" className="small">
+                    {u.idDocumentNumber ?? '—'}
+                    <span className="cell-sub">{u.drivingLicenseNo ?? 'No licence on file'}</span>
+                  </td>
+                  <td data-label="Joined">{date(u.createdAt)}</td>
+                  <td className="actions">
+                    <div className="row">
+                      <button className={`small ${u.active ? 'danger' : ''}`} disabled={action.busy} onClick={() => toggle(u)}>
+                        {u.active ? 'Block' : 'Unblock'}
+                        <span className="sr-only"> {u.fullName}</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -103,14 +134,20 @@ export function NotificationsAdmin() {
   };
 
   return (
-    <div className="stack">
-      <h1>Notifications</h1>
-      <p className="muted small">
-        A broadcast creates an in-app notification for every active customer. A copy is emailed only when email
-        delivery is configured on the server; each email&apos;s outcome appears in the log below.
-      </p>
-      <div className="card stack">
-        <h2>Broadcast to customers</h2>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <div>
+          <span className="eyebrow">Communication</span>
+          <h1>Notifications</h1>
+          <p className="muted">
+            A broadcast creates an in-app notification for every active customer. A copy is emailed only when email
+            delivery is configured on the server; each email&apos;s outcome appears in the log below.
+          </p>
+        </div>
+      </div>
+
+      <section className="panel-card admin-form" aria-labelledby="broadcast-title">
+        <h2 id="broadcast-title">Broadcast to customers</h2>
         <label>
           Subject
           <input
@@ -118,64 +155,75 @@ export function NotificationsAdmin() {
             maxLength={BROADCAST_SUBJECT_MAX}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Esala Perahera road closures"
+            aria-describedby="broadcast-subject-count"
           />
-          <span className="muted small">
-            {subject.length}/{BROADCAST_SUBJECT_MAX}
+          <span id="broadcast-subject-count" className="field-hint">
+            {subject.length}/{BROADCAST_SUBJECT_MAX} characters
           </span>
         </label>
         <label>
           Message
           <textarea
-            rows={3}
+            rows={4}
             value={message}
             maxLength={BROADCAST_MESSAGE_MAX}
             onChange={(e) => setMessage(e.target.value)}
+            aria-describedby="broadcast-message-count"
           />
-          <span className="muted small">
-            {message.length}/{BROADCAST_MESSAGE_MAX}
+          <span id="broadcast-message-count" className="field-hint">
+            {message.length}/{BROADCAST_MESSAGE_MAX} characters
           </span>
         </label>
+        <p className="muted small">Sent as an in-app notification, and by email only when email delivery is configured.</p>
         <ErrorAlert error={action.error} />
         {sent != null && (
-          <div className="alert success">In-app notification created for {sent} active customer(s).</div>
+          <div className="alert success" role="status">
+            In-app notification created for {sent} active customer(s).
+          </div>
         )}
-        <div>
+        <div className="admin-form__actions">
           <button className="primary" disabled={!!problem || action.busy} onClick={broadcast}>
-            Send
+            {action.busy ? 'Sending…' : 'Send broadcast'}
           </button>
         </div>
-      </div>
+      </section>
 
-      <h2>Recent messages</h2>
-      <ErrorAlert error={log.error} />
-      {log.loading && <Loading />}
-      {log.data?.length === 0 && <Empty>No notifications yet.</Empty>}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Recipient</th>
-              <th>Channel</th>
-              <th>Subject</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {log.data?.map((n) => (
-              <tr key={n.id}>
-                <td>{dateTime(n.createdAt)}</td>
-                <td>{n.recipient}</td>
-                <td>{n.channel.replace('_', '-').toLowerCase()}</td>
-                <td>{n.subject}</td>
-                <td>
-                  <StatusBadge status={n.status} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <section className="panel-card" aria-labelledby="log-title">
+        <div className="panel-card__head">
+          <h2 id="log-title">Recent messages</h2>
+        </div>
+        <ErrorAlert error={log.error} />
+        {log.loading && <Loading what="Loading the message log" />}
+        {log.data?.length === 0 && <Empty>No notifications yet.</Empty>}
+        {log.data && log.data.length > 0 && (
+          <div className="table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">When</th>
+                  <th scope="col">Recipient</th>
+                  <th scope="col">Channel</th>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.data.map((n) => (
+                  <tr key={n.id}>
+                    <td data-label="When">{dateTime(n.createdAt)}</td>
+                    <td data-label="Recipient">{n.recipient}</td>
+                    <td data-label="Channel">{CHANNEL_LABEL[n.channel]}</td>
+                    <td data-label="Subject">{n.subject}</td>
+                    <td data-label="Status">
+                      <StatusBadge status={n.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
