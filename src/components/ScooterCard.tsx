@@ -16,7 +16,11 @@ export function ScooterCard({ scooter: s, onShowAvailable }: { scooter: Scooter;
 
   return (
     <article className={`card scooter-card${availability.bookable ? '' : ' is-unavailable'}`} aria-labelledby={titleId}>
-      <ScooterThumb imageUrl={s.imageUrl} alt={s.model} />
+      {/* Figma Browse & Search v3: the photo with the availability pill over it. */}
+      <div className="scooter-card__media">
+        <ScooterThumb imageUrl={s.imageUrl} alt={s.model} />
+        <span className={`badge ${availability.tone}`}>{availability.label}</span>
+      </div>
 
       <div className="scooter-card__head">
         <div>
@@ -26,7 +30,6 @@ export function ScooterCard({ scooter: s, onShowAvailable }: { scooter: Scooter;
             {s.code}
           </p>
         </div>
-        <span className={`badge ${availability.tone}`}>{availability.label}</span>
       </div>
 
       {s.description && <p className="scooter-card__desc small">{s.description}</p>}

@@ -2,10 +2,34 @@ import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
-import { BrandMark, ErrorAlert, FieldError } from '../components/ui';
+import { BrandMark, ErrorAlert, FieldError, ScooterIllustration } from '../components/ui';
 import { useAction } from '../hooks';
 import type { RegisterFormData, RegisterFormUI } from '../types';
 import { isAdmin } from '../types';
+
+// ─── Page aside (Figma Registration/Login v3) ────────────────────────────────
+
+/** The brand panel beside the form on wide screens. It states only what the service really offers. */
+function AuthAside({ heading, accent }: { heading: string; accent: string }) {
+  return (
+    <aside className="auth-aside" aria-label="About Scooter Rent Kandy">
+      <div className="auth-aside__art" aria-hidden>
+        <ScooterIllustration />
+      </div>
+      <p className="auth-aside__title">
+        {heading} <span className="accent-text">{accent}</span>
+      </p>
+      <p className="auth-aside__text">
+        Book online, sign the rental agreement digitally and pay securely by card. Pay by the hour and kilometre.
+      </p>
+      <ul className="auth-aside__facts">
+        <li>Card payments by Stripe</li>
+        <li>GPS-tracked rentals</li>
+        <li>Pick-up in Kandy town</li>
+      </ul>
+    </aside>
+  );
+}
 
 // ─── Error message mapping ────────────────────────────────────────────────────
 
@@ -95,7 +119,8 @@ export function Login() {
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container auth-split">
+      <AuthAside heading="Welcome back to" accent="Kandy's hills." />
       <div className="auth-card">
         {/* Header */}
         <div className="auth-header">
@@ -284,7 +309,8 @@ export function Register() {
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container auth-split auth-split--wide">
+      <AuthAside heading="Ride Kandy on" accent="two wheels." />
       <div className="auth-card auth-card--wide">
         {/* Header */}
         <div className="auth-header">

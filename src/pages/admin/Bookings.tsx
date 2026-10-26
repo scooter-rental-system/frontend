@@ -6,6 +6,7 @@ import { dateTime, humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
 import { initials } from '../../admin';
 import { AdminIcon } from '../../components/AdminIcon';
+import { useConfirm } from '../../useConfirm';
 import { adminBookingPath } from '../../routes';
 import type { Booking, BookingStatus, Dashboard } from '../../types';
 
@@ -18,6 +19,7 @@ export default function Bookings() {
   // The summary cards use the server's own counts, not the filtered list below.
   const summary = useLoad(() => api.get<Dashboard>('/admin/dashboard'));
   const action = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const q = search.trim().toLowerCase();
   const rows = (list.data ?? []).filter(
@@ -30,7 +32,12 @@ export default function Bookings() {
 
   // The customer normally ends their own rental; an admin can do it for them (e.g. scooter left at the office).
   const endRental = async (b: Booking) => {
-    if (!window.confirm(`End ${b.reference} for ${b.customer.fullName}? The final total is charged to their card.`)) return;
+    const ok = await confirm({
+      title: `End ${b.reference}?`,
+      message: `End the rental for ${b.customer.fullName}? The final total is charged to their card.`,
+      confirmLabel: 'End rental',
+    });
+    if (!ok) return;
     await action.run(() => api.put(`/bookings/${encodeURIComponent(b.id)}/complete`, {}));
     list.reload();
     summary.reload();
@@ -38,7 +45,14 @@ export default function Bookings() {
 
   const cancel = async (b: Booking) => {
     const msg = b.status === 'ACTIVE' ? `Cancel ${b.reference}? The customer is refunded in full.` : `Cancel ${b.reference}?`;
-    if (!window.confirm(msg)) return;
+    const ok = await confirm({
+      title: `Cancel ${b.reference}?`,
+      message: msg,
+      confirmLabel: 'Cancel booking',
+      cancelLabel: 'Keep booking',
+      destructive: true,
+    });
+    if (!ok) return;
     if (await action.run(() => api.post(`/bookings/${encodeURIComponent(b.id)}/cancel`))) {
       list.reload();
       summary.reload();
@@ -47,6 +61,7 @@ export default function Bookings() {
 
   return (
     <div className="admin-page">
+      {dialog}
       <div className="admin-page__header">
         <div>
           <span className="eyebrow">Rentals</span>

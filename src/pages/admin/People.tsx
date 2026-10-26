@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api';
 import { CHANNEL_LABEL, initials } from '../../admin';
+import { useConfirm } from '../../useConfirm';
 import { Empty, ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { date, dateTime } from '../../format';
 import { useAction, useLoad } from '../../hooks';
@@ -11,18 +12,26 @@ export function Customers() {
   const list = useLoad(() => api.get<User[]>('/admin/customers'));
   const [search, setSearch] = useState('');
   const action = useAction();
+  const { confirm, dialog } = useConfirm();
   const q = search.trim().toLowerCase();
   const rows = (list.data ?? []).filter(
     (u) => !q || u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.phone ?? '').includes(q),
   );
 
   const toggle = async (u: User) => {
-    if (!window.confirm(`${u.active ? 'Block' : 'Unblock'} ${u.fullName}?`)) return;
+    const ok = await confirm({
+      title: `${u.active ? 'Block' : 'Unblock'} ${u.fullName}?`,
+      message: u.active ? 'They will not be able to sign in or book until unblocked.' : 'They will be able to sign in and book again.',
+      confirmLabel: u.active ? 'Block customer' : 'Unblock customer',
+      destructive: u.active,
+    });
+    if (!ok) return;
     if (await action.run(() => api.patch(`/admin/customers/${u.id}/active?value=${!u.active}`))) list.reload();
   };
 
   return (
     <div className="admin-page">
+      {dialog}
       <div className="admin-page__header">
         <div>
           <span className="eyebrow">People</span>
@@ -119,10 +128,16 @@ export function NotificationsAdmin() {
   const action = useAction();
 
   const problem = broadcastProblem(subject, message);
+  const { confirm, dialog } = useConfirm();
 
   const broadcast = async () => {
     if (problem) return;
-    if (!window.confirm('Send this in-app notification to every active customer?')) return;
+    const ok = await confirm({
+      title: 'Send this broadcast?',
+      message: 'An in-app notification is sent to every active customer. This cannot be undone.',
+      confirmLabel: 'Send broadcast',
+    });
+    if (!ok) return;
     setSent(null);
     const res = await action.run(() => api.post<{ recipients: number }>('/admin/notifications/broadcast', { subject, message }));
     if (res) {
@@ -135,6 +150,7 @@ export function NotificationsAdmin() {
 
   return (
     <div className="admin-page">
+      {dialog}
       <div className="admin-page__header">
         <div>
           <span className="eyebrow">Communication</span>
