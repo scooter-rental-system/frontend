@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { type Theme, useTheme } from '../theme';
-import { activeAdminLink, ADMIN_NAV } from '../admin';
+import { activeAdminLink, ADMIN_NAV, initials } from '../admin';
+import { humanize } from '../format';
 import { isAdmin } from '../types';
 import { NotificationBell } from './NotificationBell';
+import { AdminIcon } from './AdminIcon';
 import { BrandMark } from './ui';
 
 const BRAND_NAME = 'Scooter Rent Kandy';
@@ -304,16 +306,25 @@ export function RequireAuth({
 }
 
 /**
- * The admin console: grouped navigation beside the page on wide screens. Below 900px the navigation sits behind an
- * "Admin menu" button (a disclosure: aria-expanded; Escape closes it and returns focus; navigating closes it).
+ * The admin console (Figma admin screens): a charcoal sidebar with grouped navigation, a compact top bar and the
+ * page. It is its own shell, without the public header and footer. Below 900px the sidebar becomes a drawer behind
+ * the "Admin menu" button (a disclosure: aria-expanded; Escape, the backdrop or navigating closes it and focus
+ * returns to the button). A closed drawer is hidden, so its links are out of the tab order.
  */
 export function AdminLayout() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const current = activeAdminLink(location.pathname);
 
   useEffect(() => setOpen(false), [location.pathname]);
+
+  const close = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -328,47 +339,93 @@ export function AdminLayout() {
   }, [open]);
 
   return (
-    <div className="admin-shell">
-      <div className="admin-shell__bar">
-        <span className="admin-shell__context">
-          <span className="badge">Admin</span> {current?.label ?? 'Admin'}
-        </span>
-        <button
-          ref={buttonRef}
-          type="button"
-          className="small admin-menu-toggle"
-          aria-expanded={open}
-          aria-controls="admin-nav"
-          onClick={() => setOpen((v) => !v)}
-        >
-          Admin menu
-        </button>
-      </div>
+    <div className="admin-app">
+      <a className="skip-link" href="#main">
+        Skip to main content
+      </a>
       <nav id="admin-nav" className={`sidebar${open ? ' is-open' : ''}`} aria-label="Admin sections">
-        <div className="sidebar__title" aria-hidden>
-          Admin
-        </div>
-        {ADMIN_NAV.map((group) => (
-          <div key={group.title} className="sidebar__group">
-            <h2 className="sidebar__group-title">{group.title}</h2>
-            <ul>
-              {group.links.map((link) => (
-                <li key={link.to}>
-                  <NavLink to={link.to} end={link.to === '/admin'}>
-                    {link.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-        <Link to="/" className="sidebar__exit">
-          <span aria-hidden>←</span> Back to the website
+        <Link to="/admin" className="sidebar__brand">
+          <span className="sidebar__brand-name">{BRAND_NAME}</span>
+          <span className="sidebar__brand-sub">Admin console</span>
         </Link>
+        <div className="sidebar__groups">
+          {ADMIN_NAV.map((group) => (
+            <div key={group.title} className="sidebar__group">
+              <h2 className="sidebar__group-title">{group.title}</h2>
+              <ul>
+                {group.links.map((link) => (
+                  <li key={link.to}>
+                    <NavLink to={link.to} end={link.to === '/admin'}>
+                      <AdminIcon name={link.icon} />
+                      {link.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="sidebar__footer">
+          {/* Opens the real Add scooter form on the Scooters page. */}
+          <Link to="/admin/fleet" state={{ addScooter: true }} className="btn primary sidebar__cta">
+            <AdminIcon name="plus" />
+            Add scooter
+          </Link>
+          {user && (
+            <div className="sidebar__user">
+              <span className="sidebar__avatar" aria-hidden>
+                {initials(user.fullName)}
+              </span>
+              <span className="sidebar__user-text">
+                <span className="sidebar__user-name">{user.fullName}</span>
+                <span className="sidebar__user-role">{humanize(user.role)}</span>
+              </span>
+            </div>
+          )}
+          <Link to="/" className="sidebar__exit">
+            <AdminIcon name="back" />
+            Back to the website
+          </Link>
+        </div>
       </nav>
-      <section>
-        <Outlet />
-      </section>
+      {open && <div className="sidebar-backdrop" aria-hidden onClick={close} />}
+
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <button
+            ref={buttonRef}
+            type="button"
+            className="menu-toggle admin-menu-toggle"
+            aria-expanded={open}
+            aria-controls="admin-nav"
+            aria-label="Admin menu"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className="menu-toggle__bars" aria-hidden />
+          </button>
+          <span className="admin-topbar__context">
+            <span className="admin-topbar__eyebrow">Admin</span>
+            <span className="admin-topbar__title">{current?.label ?? 'Admin'}</span>
+          </span>
+          <div className="admin-topbar__actions">
+            {user && <NotificationBell />}
+            <ThemeToggle />
+            <button
+              className="small on-ink"
+              id="btn-admin-logout"
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+            >
+              Log out
+            </button>
+          </div>
+        </header>
+        <main id="main" className="admin-content" tabIndex={-1}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
