@@ -19,7 +19,8 @@ export type AdminIconName =
   | 'billing'
   | 'notifications'
   | 'plus'
-  | 'back';
+  | 'back'
+  | 'profile';
 
 export interface AdminLink {
   to: string;
@@ -62,6 +63,7 @@ export const ADMIN_NAV: AdminGroup[] = [
     title: 'Communication',
     links: [{ to: '/admin/notifications', label: 'Notifications', icon: 'notifications' }],
   },
+  { title: 'Account', links: [{ to: '/admin/profile', label: 'My profile', icon: 'profile' }] },
 ];
 
 /** The link for the current path: the most specific prefix (so /admin/bookings/123 is "Bookings"). */

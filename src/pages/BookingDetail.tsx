@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
 import { useConfirm } from '../useConfirm';
@@ -96,6 +97,7 @@ export default function BookingDetail() {
     () => (showContract ? api.get<Contract>(`${bookingApi}/contract`) : Promise.resolve(null)),
     [id, showContract],
   );
+  const inAdmin = useLocation().pathname.startsWith('/admin');
   const cancel = useAction();
   const end = useAction();
   const { confirm, dialog } = useConfirm();
@@ -143,6 +145,8 @@ export default function BookingDetail() {
   return (
     <div className="booking-page">
       {dialog}
+      {/* Admins reach this page under /admin, customers under /bookings: go back to the matching list. */}
+      <BackLink fallback={inAdmin ? '/admin/bookings' : '/bookings'} label="All bookings" />
       {/* Back from Checkout: shown only once the backend reports the booking ACTIVE (payment confirmed). */}
       {params.get('paid') && b.status === 'ACTIVE' && (
         <>

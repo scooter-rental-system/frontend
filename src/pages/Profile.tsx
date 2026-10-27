@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BackLink } from '../components/BackLink';
+import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import { ErrorAlert } from '../components/ui';
 import { date } from '../format';
 import { useAction } from '../hooks';
@@ -62,6 +64,7 @@ export default function Profile() {
 
   return (
     <div className="page page--narrow">
+      <BackLink fallback="/dashboard" />
       <div className="page-header">
         <h1>Profile</h1>
         <p className="muted">
@@ -191,6 +194,8 @@ export default function Profile() {
 
         </div>
       </form>
+
+      <ChangePasswordForm />
     </div>
   );
 }

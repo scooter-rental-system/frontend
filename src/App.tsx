@@ -14,6 +14,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import { Fleet, Gear } from './pages/admin/Fleet';
 import Gps from './pages/admin/Gps';
 import Maintenance from './pages/admin/Maintenance';
+import AdminProfile from './pages/admin/Profile';
 import { Customers, NotificationsAdmin } from './pages/admin/People';
 import Reports from './pages/admin/Reports';
 
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="customers" element={<Customers />} />
         <Route path="notifications" element={<NotificationsAdmin />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="profile" element={<AdminProfile />} />
       </Route>
     </Routes>
   );

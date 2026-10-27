@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { StripePayment } from '../components/StripePayment';
 import { ErrorAlert, Loading } from '../components/ui';
 import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
+import { bookingPath } from '../routes';
 import { DISTANCE_PRICING_RULE, GEAR_PRICING_RULE, SCOOTER_PRICING_RULE } from '../pricing';
 import type { Booking, Contract, PaymentIntent } from '../types';
 
@@ -48,6 +50,7 @@ export default function Checkout() {
 
   return (
     <div className="booking-page">
+      <BackLink fallback={bookingPath(b.id)} label="Booking details" />
       <div className="page-header">
         <span className="eyebrow">Secure checkout · {b.reference}</span>
         <p className="checkout-heading">
