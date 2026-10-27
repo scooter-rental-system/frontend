@@ -33,6 +33,8 @@ export interface RegisterFormData {
   /** Passport / other ID — optional. */
   idDocumentNumber: string;
   drivingLicenseNo: string;
+  /** SDS 8.5: explicit consent to store the personal data on the form; the backend requires true (BE-035). */
+  consent: boolean;
 }
 
 /** Frontend-only: confirm password is validated in the form and stripped before sending. */

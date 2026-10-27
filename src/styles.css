@@ -2748,3 +2748,6 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
     scroll-behavior: auto !important;
   }
 }
+
+/* Registration consent (SDS 8.5): the checkbox beside its statement, the error below. */
+.register-consent { display: flex; flex-direction: column; gap: 6px; }
