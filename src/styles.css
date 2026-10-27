@@ -2761,3 +2761,8 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
 .pricing-info__grid > div { padding: var(--space-4); border-radius: var(--radius); background: var(--surface-2); min-width: 0; }
 .pricing-info__grid h3, .pricing-info__grid h4 { font-size: 1rem; margin-bottom: var(--space-2); color: var(--accent); }
 .pricing-info__grid ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 4px; font-size: 0.9375rem; }
+
+/* Repair / breakdown reports (customer panel and admin list). */
+.repair-list, .repair-admin-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.repair-list li { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface-2); }
+.repair-description { white-space: pre-wrap; overflow-wrap: anywhere; }

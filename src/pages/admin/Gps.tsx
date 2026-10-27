@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { gpsCounts } from '../../admin';
 import MapView, { MapMarker } from '../../components/MapView';
 import { ErrorAlert, StatusBadge } from '../../components/ui';
 import { dateTime } from '../../format';
 import { SPEED_LIMIT_KMH } from '../../rental';
+import { adminGpsHistoryPath } from '../../routes';
 import type { LivePosition, Tracking } from '../../types';
 
 export default function Gps() {
@@ -158,6 +160,11 @@ export default function Gps() {
               <p className="muted small" style={{ marginTop: 'var(--space-3)' }}>
                 {chosen.riderName ? `Rider: ${chosen.riderName} · ${chosen.activeBookingReference}` : 'Not on a rental.'}
               </p>
+              {chosen.activeBookingId && (
+                <p className="small">
+                  <Link to={adminGpsHistoryPath(chosen.activeBookingId)}>View this rental&apos;s GPS history</Link>
+                </p>
+              )}
             </section>
           )}
 

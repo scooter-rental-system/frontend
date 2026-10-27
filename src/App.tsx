@@ -13,9 +13,11 @@ import Bookings from './pages/admin/Bookings';
 import AdminDashboard from './pages/admin/Dashboard';
 import { Fleet, Gear } from './pages/admin/Fleet';
 import Gps from './pages/admin/Gps';
+import GpsHistory from './pages/admin/GpsHistory';
 import Maintenance from './pages/admin/Maintenance';
 import AdminProfile from './pages/admin/Profile';
 import { Customers, NotificationsAdmin } from './pages/admin/People';
+import Repairs from './pages/admin/Repairs';
 import Reports from './pages/admin/Reports';
 
 export default function App() {
@@ -47,6 +49,8 @@ export default function App() {
         <Route path="bookings/:id" element={<BookingDetail />} />
         <Route path="fleet" element={<Fleet />} />
         <Route path="gps" element={<Gps />} />
+        <Route path="gps/bookings/:id" element={<GpsHistory />} />
+        <Route path="repairs" element={<Repairs />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="gear" element={<Gear />} />
         <Route path="billing" element={<Billing />} />

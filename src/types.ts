@@ -266,6 +266,8 @@ export interface LivePosition {
   latitude: number | null;
   longitude: number | null;
   lastSeen: string | null;
+  /** The rental under way on this scooter (opens its GPS history for admins). */
+  activeBookingId: string | null;
   activeBookingReference: string | null;
   riderName: string | null;
   distanceFromBaseKm: number;
@@ -278,6 +280,49 @@ export interface TrailPoint {
   longitude: number;
   speedKmh: number | null;
   recordedAt: string;
+}
+
+/** GET /api/admin/gps/bookings/{id}/history: one rental's stored route, in time order (admin only). */
+export interface BookingGpsHistory {
+  bookingId: string;
+  reference: string;
+  customerName: string;
+  scooterCode: string;
+  scooterModel: string;
+  plateNumber: string;
+  status: BookingStatus;
+  start: string;
+  end: string | null;
+  points: TrailPoint[];
+  distanceKm: number;
+}
+
+export type RepairStatus = 'REPORTED' | 'ASSISTANCE_ARRANGED' | 'UNDER_REVIEW' | 'RESOLVED';
+
+/** A repair/breakdown report on a rental. The approved amount is a reimbursement record only. */
+export interface RepairReport {
+  id: string;
+  bookingId: string;
+  bookingReference: string;
+  customerName: string;
+  customerPhone: string | null;
+  scooterCode: string;
+  scooterModel: string;
+  plateNumber: string;
+  description: string;
+  selfArranged: boolean;
+  claimedAmount: number | null;
+  approvedAmount: number | null;
+  status: RepairStatus;
+  adminNote: string | null;
+  reportedAt: string;
+  updatedAt: string;
+}
+
+/** GET /api/support/contact: configured support details; null when not configured. */
+export interface SupportContact {
+  phone: string | null;
+  email: string | null;
 }
 
 export interface Tracking {

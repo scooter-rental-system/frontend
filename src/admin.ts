@@ -55,6 +55,7 @@ export const ADMIN_NAV: AdminGroup[] = [
     links: [
       { to: '/admin/gps', label: 'Live GPS', icon: 'gps' },
       { to: '/admin/maintenance', label: 'Maintenance', icon: 'maintenance' },
+      { to: '/admin/repairs', label: 'Repairs & breakdowns', icon: 'maintenance' },
     ],
   },
   { title: 'Customers', links: [{ to: '/admin/customers', label: 'Customers', icon: 'customers' }] },

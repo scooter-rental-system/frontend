@@ -9,6 +9,9 @@ export const bookingPath = (id: string) => `/bookings/${encodeURIComponent(id)}`
 
 export const adminBookingPath = (id: string) => `/admin/bookings/${encodeURIComponent(id)}`;
 
+/** Admins only: the stored GPS route of one rental. */
+export const adminGpsHistoryPath = (id: string) => `/admin/gps/bookings/${encodeURIComponent(id)}`;
+
 /** A scooter's booking page (public). */
 export const scooterPath = (id: string) => `/scooters/${encodeURIComponent(id)}`;
 

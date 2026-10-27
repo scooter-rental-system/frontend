@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
+import { RepairPanel } from '../components/RepairPanel';
 import { useConfirm } from '../useConfirm';
 import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
@@ -23,7 +24,7 @@ import {
 } from '../payments';
 import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
 import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
-import { checkoutPath } from '../routes';
+import { adminGpsHistoryPath, checkoutPath } from '../routes';
 import { useRiderGps } from '../useRiderGps';
 import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
@@ -214,6 +215,15 @@ export default function BookingDetail() {
       {b.stage !== 'BALANCE_DUE' && <ErrorAlert error={end.error} />}
 
       {b.stage === 'IN_PROGRESS' && <LiveTracking booking={b} reportLocation={shouldReportLocation(b, user?.id)} />}
+
+      {/* The rider reports repairs on their own rental in progress and follows earlier reports. */}
+      {isOwner && <RepairPanel bookingId={b.id} canReport={b.stage === 'IN_PROGRESS'} />}
+
+      {inAdmin && (b.status === 'ACTIVE' || b.status === 'COMPLETED') && (
+        <p>
+          <Link to={adminGpsHistoryPath(b.id)}>View this rental&apos;s GPS history</Link>
+        </p>
+      )}
 
       <div className="grid-2">
         <section className="card stack" aria-labelledby="details-title">
