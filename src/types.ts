@@ -49,8 +49,11 @@ export interface Scooter {
   plateNumber: string;
   engineCc: number | null;
   status: ScooterStatus;
-  /** SDS 2.2: LKR per hour and per km. */
+  /** LKR per full 24 hours (and per remainder of more than 8 hours); see pricing.ts. */
+  dailyRate: number;
+  /** LKR per extra started hour, for a remainder of up to 8 hours after the full days. */
   hourlyRate: number;
+  /** LKR per km from the GPS log. */
   perKmRate: number;
   /** SDS 2.2: cumulative km (decimal). */
   totalMileage: number;
@@ -81,6 +84,8 @@ export interface GearItem {
 export interface Quote {
   scooterId: string;
   currency: string;
+  dailyRate: number;
+  /** The extra-hour rate. */
   hourlyRate: number;
   perKmRate: number;
   gear: { gearItemId: string; name: string; quantity: number; dailyRate: number; days: number; lineTotal: number }[];
@@ -116,12 +121,16 @@ export interface Booking {
     model: string;
     plateNumber: string;
     imageUrl: string | null;
+    dailyRate: number;
+    /** The extra-hour rate. */
     hourlyRate: number;
     perKmRate: number;
   };
   startTime: string;
   endTime: string | null;
   billableHours: number | null;
+  /** How the ended rental is charged (null until it ends): days, extra hours and the distance allowance. */
+  breakdown: { chargedDays: number; extraHours: number; includedKm: number; excessKm: number } | null;
   distanceKm: number | null;
   totalCost: number | null;
   /** Balance due only: frozen settlement (endTime and totalCost stay null until COMPLETED, SDS 2.2). */

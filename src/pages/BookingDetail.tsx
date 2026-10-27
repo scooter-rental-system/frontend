@@ -24,6 +24,7 @@ import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
 import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
 import { checkoutPath } from '../routes';
 import { useRiderGps } from '../useRiderGps';
+import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
 
@@ -218,7 +219,8 @@ export default function BookingDetail() {
               {b.scooter.model} ({b.scooter.plateNumber})
             </DetailRow>
             <DetailRow label="Rates">
-              {money(b.scooter.hourlyRate)}/hour + {money(b.scooter.perKmRate)}/km
+              {money(b.scooter.dailyRate)}/day · {money(b.scooter.hourlyRate)}/extra hour ·{' '}
+              {money(b.scooter.perKmRate)}/km above the {INCLUDED_KM_PER_DAY} km per day included
             </DetailRow>
             <DetailRow label="Started">{dateTime(b.startTime)}</DetailRow>
             {(b.endTime ?? b.endedAt) && (
@@ -227,6 +229,17 @@ export default function BookingDetail() {
                 {b.distanceKm ?? b.pendingDistanceKm} km
               </DetailRow>
             )}
+            {b.breakdown && (
+              <>
+                <DetailRow label="Charged time">
+                  {b.breakdown.chargedDays} day{b.breakdown.chargedDays === 1 ? '' : 's'} + {b.breakdown.extraHours} extra
+                  hour{b.breakdown.extraHours === 1 ? '' : 's'}
+                </DetailRow>
+                <DetailRow label="Distance">
+                  {b.breakdown.includedKm} km included · {b.breakdown.excessKm} km charged
+                </DetailRow>
+              </>
+            )}
             <DetailRow label="Pickup">{b.pickupLocation ?? '—'}</DetailRow>
             {b.dropLocation && <DetailRow label="Returned at">{b.dropLocation}</DetailRow>}
             {b.gear.length > 0 && (
@@ -234,7 +247,9 @@ export default function BookingDetail() {
                 {b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}
               </DetailRow>
             )}
-            <DetailRow label="Charged at booking">{money(b.initialCharge)} (1 hour + 1 day of gear)</DetailRow>
+            <DetailRow label="Charged at booking">
+              {money(b.initialCharge)} (the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)
+            </DetailRow>
             {(b.totalCost ?? b.pendingTotalCost) != null && (
               <DetailRow label="Final total">
                 <strong>{money(b.totalCost ?? b.pendingTotalCost)}</strong>
@@ -370,12 +385,16 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
     };
   }, [b.id]);
 
-  // Running estimate with the billing formula: started hours, GPS km, gear per started day.
-  const hours = Math.max(1, Math.ceil((Date.now() - new Date(b.startTime).getTime()) / 3_600_000));
+  // Running estimate with the billing rule (pricing.ts mirrors PricingService): days and extra hours, GPS km above
+  // the allowance, gear days.
+  const elapsedMs = Date.now() - new Date(b.startTime).getTime();
+  const hours = Math.max(1, Math.ceil(elapsedMs / 3_600_000));
   const km = tracking?.distanceKm ?? 0;
-  const gearDays = Math.max(1, Math.ceil(hours / 24));
+  const gearDays = chargedGearDays(elapsedMs);
   const gearCost = b.gear.reduce((sum, g) => sum + g.dailyRate * g.quantity * gearDays, 0);
-  const estimate = hours * b.scooter.hourlyRate + km * b.scooter.perKmRate + gearCost;
+  const chargeableKm = excessKm(km, scooterTime(elapsedMs).days);
+  const estimate =
+    scooterTimeCost(elapsedMs, b.scooter.dailyRate, b.scooter.hourlyRate) + chargeableKm * b.scooter.perKmRate + gearCost;
   const last = tracking?.trail[tracking.trail.length - 1];
   const p = tracking?.position;
   const live = liveState(p);

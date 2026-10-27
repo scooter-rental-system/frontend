@@ -164,6 +164,7 @@ describe('booking summary', () => {
   const quote = {
     scooterId: 'test',
     currency: 'LKR',
+    dailyRate: 2500,
     hourlyRate: 250,
     perKmRate: 15,
     gear: [{ gearItemId: 'g1', name: 'Tent', quantity: 2, dailyRate: 500, days: 1, lineTotal: 1000 }],
@@ -175,7 +176,7 @@ describe('booking summary', () => {
   it('lists the backend quote values as they are', () => {
     const { lines, payNow } = quoteLines(quote);
     assert.deepEqual(lines, [
-      { label: 'Scooter', detail: 'First hour', amount: 250 },
+      { label: 'Scooter', detail: 'First hour (minimum)', amount: 250 },
       { label: 'Tent × 2', detail: 'First day', amount: 1000 },
     ]);
     assert.equal(payNow, 1234);
@@ -187,7 +188,7 @@ describe('booking summary', () => {
   });
 
   it('handles a quote without gear', () => {
-    assert.deepEqual(quoteLines({ ...quote, gear: [] }).lines, [{ label: 'Scooter', detail: 'First hour', amount: 250 }]);
+    assert.deepEqual(quoteLines({ ...quote, gear: [] }).lines, [{ label: 'Scooter', detail: 'First hour (minimum)', amount: 250 }]);
   });
 });
 

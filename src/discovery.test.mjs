@@ -37,10 +37,10 @@ const scooter = (over) => ({
 
 // In the backend's order (by code).
 const FLEET = [
-  scooter({ code: 'T-01', model: 'Honda Dio', hourlyRate: 300, engineCc: 110 }),
-  scooter({ code: 'T-02', model: 'TVS Ntorq', hourlyRate: 400, engineCc: 125, available: false, status: 'RENTED' }),
-  scooter({ code: 'T-03', model: 'Yamaha Ray ZR', hourlyRate: 250, engineCc: null }),
-  scooter({ code: 'T-04', model: 'Vespa VXL', hourlyRate: 400, perKmRate: 5, engineCc: 150, available: false, status: 'MAINTENANCE' }),
+  scooter({ code: 'T-01', model: 'Honda Dio', dailyRate: 3000, hourlyRate: 300, engineCc: 110 }),
+  scooter({ code: 'T-02', model: 'TVS Ntorq', dailyRate: 4000, hourlyRate: 400, engineCc: 125, available: false, status: 'RENTED' }),
+  scooter({ code: 'T-03', model: 'Yamaha Ray ZR', dailyRate: 2500, hourlyRate: 250, engineCc: null }),
+  scooter({ code: 'T-04', model: 'Vespa VXL', dailyRate: 4000, hourlyRate: 400, perKmRate: 5, engineCc: 150, available: false, status: 'MAINTENANCE' }),
 ];
 const codes = (list) => list.map((s) => s.code);
 const params = (q) => new URLSearchParams(q);
@@ -113,7 +113,7 @@ describe('sort', () => {
     assert.deepEqual(codes(discover(FLEET, NO_FILTERS)), ['T-01', 'T-02', 'T-03', 'T-04']);
   });
 
-  it('sorts by hourly price, then per-km price', () => {
+  it('sorts by daily price, then extra-hour price, then per-km price', () => {
     assert.deepEqual(codes(discover(FLEET, { ...NO_FILTERS, sort: 'price-asc' })), ['T-03', 'T-01', 'T-04', 'T-02']);
     assert.deepEqual(codes(discover(FLEET, { ...NO_FILTERS, sort: 'price-desc' })), ['T-02', 'T-04', 'T-01', 'T-03']);
   });
@@ -187,8 +187,10 @@ describe('Home and card source', () => {
   });
 
   it('shows the backend rates and availability text on every card', () => {
-    assert.match(card, /\{money\(s\.hourlyRate\)\}/);
-    assert.match(card, /\+ \{money\(s\.perKmRate\)\} \/ km/);
+    // Daily rate first; the extra-hour and per-km rates as the secondary line.
+    assert.match(card, /<span className="price">\{money\(s\.dailyRate\)\}<\/span>\s*<span className="muted small"> \/ day<\/span>/);
+    assert.match(card, /\{money\(s\.hourlyRate\)\} \/ extra hour/);
+    assert.match(card, /\{INCLUDED_KM_PER_DAY\} km\/day included, then \{money\(s\.perKmRate\)\} \/ km/);
     assert.match(card, /<span className=\{`badge \$\{availability\.tone\}`\}>\{availability\.label\}<\/span>/);
   });
 

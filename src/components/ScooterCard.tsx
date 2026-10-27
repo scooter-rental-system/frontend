@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { availabilityOf } from '../discovery';
 import { money } from '../format';
+import { INCLUDED_KM_PER_DAY } from '../pricing';
 import { scooterPath } from '../routes';
 import type { Scooter } from '../types';
 import { ScooterThumb } from './ui';
@@ -36,9 +37,11 @@ export function ScooterCard({ scooter: s, onShowAvailable }: { scooter: Scooter;
 
       <div className="scooter-card__foot">
         <p className="scooter-price">
-          <span className="price">{money(s.hourlyRate)}</span>
-          <span className="muted small"> / hour</span>
-          <span className="scooter-price__extra muted small">+ {money(s.perKmRate)} / km</span>
+          <span className="price">{money(s.dailyRate)}</span>
+          <span className="muted small"> / day</span>
+          <span className="scooter-price__extra muted small">
+            {money(s.hourlyRate)} / extra hour · {INCLUDED_KM_PER_DAY} km/day included, then {money(s.perKmRate)} / km
+          </span>
         </p>
         {availability.bookable ? (
           <Link className="btn primary" to={scooterPath(s.id)}>

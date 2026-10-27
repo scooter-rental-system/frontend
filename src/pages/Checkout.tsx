@@ -8,6 +8,7 @@ import { ErrorAlert, Loading } from '../components/ui';
 import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
+import { DISTANCE_PRICING_RULE, GEAR_PRICING_RULE, SCOOTER_PRICING_RULE } from '../pricing';
 import type { Booking, Contract, PaymentIntent } from '../types';
 
 export default function Checkout() {
@@ -168,7 +169,7 @@ export default function Checkout() {
             <div className="summary-line">
               <dt>Scooter</dt>
               <dd className="num">
-                {money(b.scooter.hourlyRate)}/hour + {money(b.scooter.perKmRate)}/km
+                {money(b.scooter.dailyRate)}/day · {money(b.scooter.hourlyRate)}/extra hour + {money(b.scooter.perKmRate)}/km
               </dd>
             </div>
             {b.gear.map((g) => (
@@ -185,10 +186,13 @@ export default function Checkout() {
             </div>
           </dl>
           <p className="muted small">
-            Pay now covers 1 hour and 1 day of gear. When you end the rental, the total for every started hour, the
-            kilometres from the GPS log and each started day of gear is calculated, and the balance is charged to the
+            Pay now covers the one-hour minimum and 1 day of gear. When you end the rental, the total for the rental
+            time, the kilometres from the GPS log and the gear days is calculated, and the balance is charged to the
             same card.
           </p>
+          <p className="muted small">{SCOOTER_PRICING_RULE}</p>
+          <p className="muted small">{DISTANCE_PRICING_RULE}</p>
+          {b.gear.length > 0 && <p className="muted small">{GEAR_PRICING_RULE}</p>}
         </aside>
       </div>
     </div>

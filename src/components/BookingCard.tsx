@@ -69,7 +69,8 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
             {b.scooter.model} ({b.scooter.code}, {b.scooter.plateNumber})
           </DetailRow>
           <DetailRow label="Rates">
-            {money(b.scooter.hourlyRate)} / hour · {money(b.scooter.perKmRate)} / km
+            {money(b.scooter.dailyRate)} / day · {money(b.scooter.hourlyRate)} / extra hour ·{' '}
+            {money(b.scooter.perKmRate)} / km above the included distance
           </DetailRow>
           <DetailRow label="Pickup">{b.pickupLocation}</DetailRow>
           {b.dropLocation && <DetailRow label="Drop-off">{b.dropLocation}</DetailRow>}

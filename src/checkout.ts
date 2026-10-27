@@ -51,11 +51,12 @@ export interface SummaryLine {
 }
 
 /**
- * The booking summary, using the backend quote's values as they are (no frontend arithmetic): the scooter's first
- * hour, each gear line as quoted, and the amount charged now.
+ * The booking summary, using the backend quote's values as they are (no frontend arithmetic): the scooter's
+ * one-hour minimum (charged now; the rest is billed by day and extra hour when the rental ends), each gear line as
+ * quoted, and the amount charged now.
  */
 export function quoteLines(quote: Quote): { lines: SummaryLine[]; payNow: number } {
-  const lines: SummaryLine[] = [{ label: 'Scooter', detail: 'First hour', amount: quote.hourlyRate }];
+  const lines: SummaryLine[] = [{ label: 'Scooter', detail: 'First hour (minimum)', amount: quote.hourlyRate }];
   for (const g of quote.gear) {
     lines.push({ label: `${g.name} × ${g.quantity}`, detail: g.days === 1 ? 'First day' : `${g.days} days`, amount: g.lineTotal });
   }
