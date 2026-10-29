@@ -19,7 +19,8 @@ function PaymentProviderStatus() {
   if (!setup.ready) {
     return (
       <div className="alert small" role="status">
-        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay for bookings.
+        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay by card. Cash at the rental
+        counter is still available and is recorded on each booking.
       </div>
     );
   }
@@ -131,13 +132,15 @@ export default function Billing() {
                       </td>
                       <td data-label="Paid">{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
                       <td data-label="Method">
-                        {p.method.toLowerCase()}
+                        {p.method === 'CASH' ? 'Cash' : p.method.toLowerCase()}
                         {p.cardLast4 && <span className="cell-sub">card ending {p.cardLast4}</span>}
+                        {p.method === 'CASH' && <span className="cell-sub">at the rental counter</span>}
                       </td>
                       <td data-label="Status">
                         <span className="row">
                           <span className={`badge ${PAYMENT_TONE[p.status]}`}>{humanize(p.status)}</span>
                           {p.balanceDue != null && <span className="badge red">Due {money(p.balanceDue)}</span>}
+                          {p.refundDue != null && <span className="badge amber">Refund due {money(p.refundDue)}</span>}
                         </span>
                         {p.failureReason && <span className="cell-sub">{p.failureReason}</span>}
                       </td>

@@ -12,6 +12,16 @@ import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
 import { DetailRow, ErrorAlert, Loading, StageBadge, Stat, StatusBadge } from '../components/ui';
+import {
+  CASH_CANCEL_NOTE,
+  CASH_END_NOTE,
+  CASH_PENDING_NOTE,
+  cashAction,
+  cashConfirmPath,
+  cashPaymentLabel,
+  invoiceReimbursement,
+  isCashBooking,
+} from '../cash';
 import { paymentLabel } from '../checkout';
 import { DEMO_RENTAL_NOTE, demoActions, demoBlocker, isDemoRental } from '../demo';
 import { dateTime, money } from '../format';
@@ -116,6 +126,9 @@ export default function BookingDetail() {
   // A viva demo rental has no payment to settle against: only the admin demo controls end it.
   const demoRental = isDemoRental(b);
   const canEnd = b.stage === 'IN_PROGRESS' && (isOwner || isAdmin(user?.role)) && !demoRental;
+  // Cash at the rental counter: nothing moves through the card provider, and only an admin records the cash.
+  const cash = isCashBooking(b);
+  const cashPending = cash && b.status === 'PENDING' && b.payment?.status === 'PENDING';
 
   const refresh = () => {
     booking.reload();
@@ -124,7 +137,11 @@ export default function BookingDetail() {
 
   const doCancel = async () => {
     const msg =
-      b.status === 'ACTIVE' ? 'Cancel this booking? You will receive a full refund.' : 'Cancel this reservation?';
+      b.status === 'ACTIVE'
+        ? cash
+          ? CASH_CANCEL_NOTE
+          : 'Cancel this booking? You will receive a full refund.'
+        : 'Cancel this reservation?';
     const ok = await confirm({
       title: 'Cancel booking?',
       message: msg,
@@ -140,7 +157,7 @@ export default function BookingDetail() {
   const doEnd = async () => {
     const ok = await confirm({
       title: 'End the rental now?',
-      message: 'The final total is calculated and the balance charged to your card.',
+      message: cash ? CASH_END_NOTE : 'The final total is calculated and the balance charged to your card.',
       confirmLabel: 'End rental',
       cancelLabel: 'Keep riding',
     });
@@ -185,7 +202,7 @@ export default function BookingDetail() {
         <div className="booking-header__actions">
           {b.status === 'PENDING' && isOwner && (
             <Link className="btn primary" to={checkoutPath(b.id)}>
-              {b.stage === 'PAYMENT_FAILED' ? 'Try payment again' : 'Sign & pay'}
+              {b.stage === 'PAYMENT_FAILED' ? 'Try payment again' : cashPending ? 'Payment options' : 'Sign & pay'}
             </Link>
           )}
           {canEnd && (
@@ -212,6 +229,15 @@ export default function BookingDetail() {
         />
       )}
 
+      {cash && (
+        <CashPanel
+          booking={b}
+          invoice={invoices.data?.find((i) => i.kind === 'FINAL')}
+          admin={inAdmin && isAdmin(user?.role)}
+          onChanged={refresh}
+        />
+      )}
+
       <ErrorAlert error={cancel.error} />
       {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
         <div className="alert" role="alert">
@@ -220,7 +246,8 @@ export default function BookingDetail() {
       )}
       {b.stage === 'UPCOMING' && (
         <div className="alert info">
-          Paid. Your rental starts {dateTime(b.startTime)}. You can cancel for a full refund until then.
+          Paid{cash && ' in cash'}. Your rental starts {dateTime(b.startTime)}. You can cancel for a full refund
+          {cash && ', handed back in cash at the counter,'} until then.
         </div>
       )}
 
@@ -279,11 +306,13 @@ export default function BookingDetail() {
                 {b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}
               </DetailRow>
             )}
-            <DetailRow label={demoRental ? 'Initial charge' : 'Charged at booking'}>
+            <DetailRow label={demoRental ? 'Initial charge' : cash ? 'Paid at booking (cash)' : 'Charged at booking'}>
               {money(b.initialCharge)}{' '}
               {demoRental
                 ? '(not charged: no payment was taken for this viva demo rental)'
-                : '(the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)'}
+                : cash
+                  ? '(the one-hour minimum + 1 day of gear; the rest is paid in cash when the rental ends)'
+                  : '(the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)'}
             </DetailRow>
             {(b.totalCost ?? b.pendingTotalCost) != null && (
               <DetailRow label="Final total">
@@ -331,6 +360,8 @@ function BalanceDue({
   const due = b.payment?.balanceDue ?? 0;
   // The balance PaymentIntent is created only when the customer chooses to pay online, not on every visit.
   const [payOnline, setPayOnline] = useState(false);
+  // A cash balance is paid at the counter, never online: the CashPanel shows it.
+  if (isCashBooking(b)) return null;
   return (
     <section className="card stack action-panel" aria-labelledby="balance-title">
       <div className="checkout-task__head">
@@ -368,6 +399,109 @@ function BalanceDue({
         />
       )}
       <p className="muted small">The balance is shown as paid once Stripe confirms the payment to us.</p>
+    </section>
+  );
+}
+
+/**
+ * Cash at the rental counter: the cash due before the booking is confirmed, or at the end the adjusted final total
+ * (rental subtotal less any approved repair reimbursement) against the cash received, with the cash balance due or
+ * the cash to hand back. An admin gets the one confirmation that applies; a customer never does.
+ */
+function CashPanel({
+  booking: b,
+  invoice,
+  admin,
+  onChanged,
+}: {
+  booking: Booking;
+  invoice?: Invoice;
+  admin: boolean;
+  onChanged: () => void;
+}) {
+  const record = useAction();
+  const { confirm, dialog } = useConfirm();
+  const p = b.payment;
+  if (!p) return null;
+  const pending = b.status === 'PENDING' && p.status === 'PENDING';
+  const settling = b.status === 'ACTIVE' && b.endedAt != null;
+  const refundAfterCancel = b.status === 'CANCELLED' && p.refundDue != null;
+  if (!pending && !settling && !refundAfterCancel) return null;
+  const action = cashAction(b, admin);
+  const reimbursement = invoice ? invoiceReimbursement(invoice) : 0;
+  const title = pending ? 'Cash payment pending' : p.refundDue != null ? 'Cash refund due' : 'Cash balance due';
+
+  const doConfirm = async () => {
+    if (!action) return;
+    const ok = await confirm({
+      title: action.title,
+      message: action.message,
+      confirmLabel: action.label,
+      cancelLabel: 'Not yet',
+    });
+    if (!ok) return;
+    const done = await record.run(() => api.post<Booking>(cashConfirmPath(b.id, action.step), { amount: action.amount }));
+    if (done) onChanged();
+  };
+
+  return (
+    <section className="card stack action-panel" aria-labelledby="cash-title">
+      {dialog}
+      <div className="checkout-task__head">
+        <h2 id="cash-title">{title}</h2>
+        <span className="badge amber">{admin ? 'Action needed' : 'At the rental counter'}</span>
+      </div>
+      {pending && (
+        <>
+          <div className="checkout-amount">
+            <span className="muted">Cash due now</span>
+            <strong className="price">{money(p.amount)}</strong>
+          </div>
+          <p className="small">{CASH_PENDING_NOTE}</p>
+        </>
+      )}
+      {settling && (
+        <dl className="small cash-bill">
+          {invoice && <DetailRow label="Rental subtotal">{money(invoice.subtotal)}</DetailRow>}
+          {reimbursement > 0 && <DetailRow label="Approved repair reimbursement">−{money(reimbursement)}</DetailRow>}
+          <DetailRow label="Final total">{money(b.pendingTotalCost)}</DetailRow>
+          <DetailRow label="Cash received">{money(p.amount)}</DetailRow>
+          {p.balanceDue != null && (
+            <DetailRow label="Cash balance due">
+              <strong>{money(p.balanceDue)}</strong>
+            </DetailRow>
+          )}
+          {p.refundDue != null && (
+            <DetailRow label="Cash refund due">
+              <strong>{money(p.refundDue)}</strong>
+            </DetailRow>
+          )}
+        </dl>
+      )}
+      {refundAfterCancel && (
+        <div className="checkout-amount">
+          <span className="muted">Cash refund due</span>
+          <strong className="price">{money(p.refundDue)}</strong>
+        </div>
+      )}
+      <p className="small">
+        Payment method: <strong>Cash</strong>
+        {!admin && settling && p.balanceDue != null && ' · Pay the cash balance at the rental counter; the rental is completed once an administrator records it.'}
+        {!admin && p.refundDue != null && ' · The cash is handed back to you at the rental counter.'}
+      </p>
+      {action && (
+        <div className="stack">
+          <ErrorAlert error={record.error} />
+          <div className="row">
+            <span className="small">
+              {action.dueLabel}: <strong>{money(action.amount)}</strong>
+            </span>
+            <button className="primary" onClick={doConfirm} disabled={record.busy}>
+              {record.busy ? 'Recording…' : action.label}
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -416,7 +550,8 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
         <div className="row between">
           <div>
             <div>
-              {paymentLabel(p.status)}
+              {p.method === 'CASH' ? cashPaymentLabel(p.status) : paymentLabel(p.status)}
+              {p.method === 'CASH' && <span className="muted small"> · Cash at the rental counter</span>}
               {p.cardLast4 && <span className="muted small"> · card ****{p.cardLast4}</span>}
             </div>
             <div className="muted small">
@@ -424,6 +559,7 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
               {p.failureReason && ` · ${p.failureReason}`}
             </div>
             {p.balanceDue != null && <div className="small">Balance due: {money(p.balanceDue)}</div>}
+            {p.refundDue != null && <div className="small">Cash refund due: {money(p.refundDue)}</div>}
           </div>
           <div className="right">
             <div className="num">{money(p.amount)}</div>

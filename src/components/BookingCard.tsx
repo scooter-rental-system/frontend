@@ -95,8 +95,10 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
             {b.payment ? (
               <>
                 {humanize(b.payment.status)} · {money(b.payment.amount)}
+                {b.payment.method === 'CASH' && ' · cash'}
                 {b.payment.cardLast4 && ` · card ending ${b.payment.cardLast4}`}
                 {b.payment.balanceDue != null && b.payment.balanceDue > 0 && ` · balance due ${money(b.payment.balanceDue)}`}
+                {b.payment.refundDue != null && ` · cash refund due ${money(b.payment.refundDue)}`}
                 {b.payment.failureReason && <div className="field-error">{b.payment.failureReason}</div>}
               </>
             ) : (

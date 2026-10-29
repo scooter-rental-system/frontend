@@ -2833,3 +2833,25 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
 .repair-photos__missing { color: var(--text-muted); }
 .invoice__credit td { color: var(--success-text); }
 .invoice__subtotal td { border-top: 1px solid var(--border); }
+
+/* Cash at the rental counter (BE-044): the checkout payment method choice and the cash rows of an invoice. */
+.payment-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.payment-methods legend { font-weight: 600; margin-bottom: var(--space-2); }
+.payment-method {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.payment-method.is-selected { border-color: var(--brand); }
+.payment-methods:disabled .payment-method { cursor: not-allowed; opacity: 0.6; }

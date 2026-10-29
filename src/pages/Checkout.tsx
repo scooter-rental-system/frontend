@@ -6,6 +6,7 @@ import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { StripePayment } from '../components/StripePayment';
 import { ErrorAlert, Loading } from '../components/ui';
+import { CASH_CHECKOUT_NOTE, CASH_HOLD_NOTE, chooseCashPath, isCashBooking, METHOD_LABEL, type CheckoutMethod } from '../cash';
 import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
@@ -24,6 +25,10 @@ export default function Checkout() {
   const [signedName, setSignedName] = useState('');
   const [agree, setAgree] = useState(false);
   const sign = useAction();
+  // Card goes through the payment provider; cash is paid at the counter and recorded by an admin. Cash does not
+  // depend on the card provider, so it stays selectable when card payments are unavailable.
+  const [chosen, setChosen] = useState<CheckoutMethod | null>(null);
+  const payCash = useAction();
 
   if (booking.loading || contract.loading) return <Loading />;
   if (!booking.data || !contract.data) return <ErrorAlert error={booking.error ?? contract.error} />;
@@ -46,6 +51,14 @@ export default function Checkout() {
   const doSign = async () => {
     const res = await sign.run(() => api.post<Contract>(`${bookingApi}/contract/sign`, { signedName, agree }));
     if (res) contract.setData(res);
+  };
+
+  const method: CheckoutMethod = chosen ?? (isCashBooking(b) ? 'CASH' : 'CARD');
+  const cashChosen = isCashBooking(b) && b.payment?.status === 'PENDING';
+  // Choosing cash records nothing as paid: the booking waits for an administrator to record the cash.
+  const doPayCash = async () => {
+    const res = await payCash.run(() => api.post<Booking>(chooseCashPath(b.id)));
+    if (res) navigate(`/bookings/${b.id}`);
   };
 
   return (
@@ -115,6 +128,21 @@ export default function Checkout() {
               <span className="muted">Pay now</span>
               <strong className="price">{money(b.initialCharge)}</strong>
             </div>
+            <fieldset className="payment-methods" disabled={!c.signed}>
+              <legend>Payment method</legend>
+              {(['CARD', 'CASH'] as const).map((m) => (
+                <label key={m} className={`payment-method${method === m ? ' is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value={m}
+                    checked={method === m}
+                    onChange={() => setChosen(m)}
+                  />
+                  {METHOD_LABEL[m]}
+                </label>
+              ))}
+            </fieldset>
             {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
               <div className="alert" role="alert">
                 Last attempt failed: {b.payment.failureReason}
@@ -125,30 +153,52 @@ export default function Checkout() {
                 <span aria-hidden>🔒</span> Sign the rental agreement above to unlock payment.
               </p>
             )}
-            <div className="stripe-container">
-              <StripePayment
-                bookingId={b.id}
-                purpose="initial"
-                amount={b.initialCharge}
-                disabled={!c.signed}
-                billingName={user?.fullName}
-                billingEmail={user?.email}
-                createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/payment-intent`)}
-                reload={() => api.get<Booking>(`/bookings/${b.id}`)}
-                onSettled={() => navigate(`/bookings/${b.id}?paid=1`)}
-              />
-            </div>
-            {c.signed && (
-              <p className="muted small">
-                Your booking is confirmed once Stripe tells us the payment succeeded. This page waits for that
-                confirmation before moving on.
-              </p>
+            {method === 'CASH' && (
+              <div className="stack">
+                <div className="alert info" role="note">
+                  {CASH_CHECKOUT_NOTE}
+                </div>
+                <p className="muted small">{CASH_HOLD_NOTE}</p>
+                <ErrorAlert error={payCash.error} />
+                {cashChosen ? (
+                  <Link to={`/bookings/${b.id}`} className="btn primary checkout-task__action">
+                    View booking
+                  </Link>
+                ) : (
+                  <button className="primary checkout-task__action" disabled={!c.signed || payCash.busy} onClick={doPayCash}>
+                    {payCash.busy ? 'Saving…' : `Pay ${money(b.initialCharge)} in cash at the counter`}
+                  </button>
+                )}
+              </div>
             )}
-            <ul className="checkout-trust" aria-label="About this payment">
-              <li>Processed by Stripe</li>
-              <li>Card details never reach our servers</li>
-              <li>Booked only once the payment succeeds</li>
-            </ul>
+            {method === 'CARD' && (
+              <>
+                <div className="stripe-container">
+                  <StripePayment
+                    bookingId={b.id}
+                    purpose="initial"
+                    amount={b.initialCharge}
+                    disabled={!c.signed}
+                    billingName={user?.fullName}
+                    billingEmail={user?.email}
+                    createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/payment-intent`)}
+                    reload={() => api.get<Booking>(`/bookings/${b.id}`)}
+                    onSettled={() => navigate(`/bookings/${b.id}?paid=1`)}
+                  />
+                </div>
+                {c.signed && (
+                  <p className="muted small">
+                    Your booking is confirmed once Stripe tells us the payment succeeded. This page waits for that
+                    confirmation before moving on.
+                  </p>
+                )}
+                <ul className="checkout-trust" aria-label="About this payment">
+                  <li>Processed by Stripe</li>
+                  <li>Card details never reach our servers</li>
+                  <li>Booked only once the payment succeeds</li>
+                </ul>
+              </>
+            )}
           </section>
         </div>
 
@@ -224,7 +274,9 @@ export default function Checkout() {
           <dl className="summary-facts summary-stages small">
             <div>
               <dt>Pay now</dt>
-              <dd>{money(b.initialCharge)}, charged when you pay below.</dd>
+              <dd>
+                {money(b.initialCharge)}, {method === 'CASH' ? 'paid in cash at the rental counter.' : 'charged when you pay below.'}
+              </dd>
             </div>
             <div>
               <dt>Final total</dt>
@@ -232,7 +284,11 @@ export default function Checkout() {
             </div>
             <div>
               <dt>Balance</dt>
-              <dd>Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).</dd>
+              <dd>
+                {method === 'CASH'
+                  ? 'Final total minus pay now, paid in cash at the counter when the rental ends (any excess is handed back in cash).'
+                  : 'Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).'}
+              </dd>
             </div>
           </dl>
 

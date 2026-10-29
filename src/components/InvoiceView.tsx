@@ -16,6 +16,8 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   // rental subtotal; its total is the adjusted final total.
   const credits = invoice.kind === 'FINAL' ? invoice.lines.filter((l) => l.amount < 0) : [];
   const charges = credits.length > 0 ? invoice.lines.filter((l) => l.amount >= 0) : invoice.lines;
+  // Paid in cash at the counter: the cash received, any cash handed back, and what is still due either way.
+  const cash = invoice.kind === 'FINAL' && invoice.paymentMethod === 'CASH';
   return (
     <article className="card stack invoice" aria-labelledby={`invoice-${invoice.id}`}>
       <div className="row between">
@@ -74,15 +76,50 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
               <strong>{money(Math.abs(invoice.total))}</strong>
             </td>
           </tr>
-          {invoice.balanceDue != null && (
+          {!cash && invoice.balanceDue != null && (
             <tr>
               <td colSpan={3}>Balance still due</td>
               <td className="num">{money(invoice.balanceDue)}</td>
             </tr>
           )}
+          {cash && (
+            <>
+              <tr className="invoice__cash">
+                <td colSpan={3}>Cash already received</td>
+                <td className="num">{money(invoice.cashReceived)}</td>
+              </tr>
+              {(invoice.cashRefunded ?? 0) > 0 && (
+                <tr className="invoice__cash">
+                  <td colSpan={3}>Cash handed back</td>
+                  <td className="num">−{money(invoice.cashRefunded)}</td>
+                </tr>
+              )}
+              {invoice.balanceDue != null && (
+                <tr className="invoice__cash">
+                  <td colSpan={3}>
+                    <strong>Cash balance due</strong>
+                  </td>
+                  <td className="num">
+                    <strong>{money(invoice.balanceDue)}</strong>
+                  </td>
+                </tr>
+              )}
+              {invoice.refundDue != null && (
+                <tr className="invoice__cash">
+                  <td colSpan={3}>
+                    <strong>Cash refund due</strong>
+                  </td>
+                  <td className="num">
+                    <strong>{money(invoice.refundDue)}</strong>
+                  </td>
+                </tr>
+              )}
+            </>
+          )}
         </tbody>
       </table>
       </div>
+      {cash && <p className="muted small">Payment method: Cash at the rental counter.</p>}
     </article>
   );
 }

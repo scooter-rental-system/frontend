@@ -109,6 +109,9 @@ export type BookingStage =
 
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
+/** CARD goes through the payment provider; CASH is received at the rental counter and recorded by an admin. */
+export type PaymentMethod = 'CARD' | 'ONLINE' | 'CASH';
+
 export interface Booking {
   id: string;
   reference: string;
@@ -146,6 +149,9 @@ export interface Booking {
     cardLast4: string | null;
     failureReason: string | null;
     paidAt: string | null;
+    method: PaymentMethod;
+    /** Cash only: cash still to hand back to the customer at the counter. */
+    refundDue: number | null;
   } | null;
   pickupLocation: string;
   /** SDS 2.2: GPS position where the rental ended; null until it completes. */
@@ -175,13 +181,16 @@ export interface Payment {
   amount: number;
   method: 'CARD' | 'ONLINE' | 'CASH';
   status: PaymentStatus;
-  provider: string;
+  /** Null for cash: no payment provider is involved. */
+  provider: string | null;
   stripePaymentId: string | null;
   cardLast4: string | null;
   balanceDue: number | null;
   failureReason: string | null;
   paidAt: string | null;
   createdAt: string;
+  /** Cash only: cash still to hand back to the customer. */
+  refundDue: number | null;
 }
 
 /** GET /api/payments/config. The publishable key is public by design; secret keys never reach the browser. */
@@ -223,6 +232,13 @@ export interface Invoice {
   total: number;
   issuedAt: string;
   lines: { description: string; quantity: number; unitPrice: number; amount: number }[];
+  /** How the booking is paid; null when there is no payment (a viva demo rental). */
+  paymentMethod: PaymentMethod | null;
+  /** Final invoice paid in cash: cash recorded as received, and as handed back. */
+  cashReceived: number | null;
+  cashRefunded: number | null;
+  /** Final invoice paid in cash: cash still to hand back. */
+  refundDue: number | null;
 }
 
 export interface Notification {
