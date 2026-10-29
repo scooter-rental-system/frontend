@@ -101,7 +101,7 @@ describe('a demo rental', () => {
   });
 
   it('shows the calculated bill as not charged instead of the card balance panel', () => {
-    assert.match(detail, /\{b\.stage === 'BALANCE_DUE' && demoRental && <DemoSettlement booking=\{b\} \/>\}/);
+    assert.match(detail, /\{b\.stage === 'BALANCE_DUE' && demoRental && \(\s*<DemoSettlement booking=\{b\} invoice=\{invoices\.data\?\.find\(\(i\) => i\.kind === 'FINAL'\)\} \/>\s*\)\}/);
     assert.match(detail, /\{b\.stage === 'BALANCE_DUE' && !demoRental && \(\s*<BalanceDue/);
     assert.match(detail, /Calculated final total/);
     assert.match(detail, /calculated but not charged/);

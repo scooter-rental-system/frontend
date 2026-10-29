@@ -2797,3 +2797,39 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
   gap: var(--space-3);
 }
 .demo-panel__action p { flex: 1 1 16rem; margin: 0; }
+
+/* Repair photos: the picker on the customer's report form and the thumbnails shown to the customer and admins. */
+.repair-photo-picker { display: flex; flex-direction: column; gap: 6px; }
+.repair-photo-picker__list,
+.repair-photos { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0; padding: 0; }
+.repair-photo-picker__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 100%;
+}
+.repair-photo-picker__list li span { overflow-wrap: anywhere; }
+.repair-photo-picker__list img,
+.repair-photos img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: block;
+}
+.repair-photos a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.repair-photos__loading {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius);
+  background: var(--surface-2, var(--border));
+}
+.repair-photos__missing { color: var(--text-muted); }
+.invoice__credit td { color: var(--success-text); }
+.invoice__subtotal td { border-top: 1px solid var(--border); }

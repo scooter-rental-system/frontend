@@ -299,7 +299,17 @@ export interface BookingGpsHistory {
 
 export type RepairStatus = 'REPORTED' | 'ASSISTANCE_ARRANGED' | 'UNDER_REVIEW' | 'RESOLVED';
 
-/** A repair/breakdown report on a rental. The approved amount is a reimbursement record only. */
+/** A photo attached to a repair report; fetched through the authorised photo endpoint only. */
+export interface RepairPhoto {
+  id: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/**
+ * A repair/breakdown report on a rental. The approved amount (set by an admin) is deducted from the final bill once
+ * the report is RESOLVED; the customer's claimed amount never is.
+ */
 export interface RepairReport {
   id: string;
   bookingId: string;
@@ -317,6 +327,7 @@ export interface RepairReport {
   adminNote: string | null;
   reportedAt: string;
   updatedAt: string;
+  photos: RepairPhoto[];
 }
 
 /** GET /api/support/contact: configured support details; null when not configured. */

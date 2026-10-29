@@ -4,13 +4,17 @@ import { api } from '../../api';
 import { Empty, ErrorAlert, Loading } from '../../components/ui';
 import { dateTime, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
-import { REPAIR_STATUS_LABEL, REPAIR_STATUS_TONE, REPAIR_STATUSES } from '../../repairs';
+import { RepairPhotos } from '../../components/RepairPhotos';
+import {
+  APPROVAL_HELP, isRupeeAmount, REPAIR_STATUS_LABEL, REPAIR_STATUS_TONE, REPAIR_STATUSES, reimbursementNote,
+} from '../../repairs';
 import { adminBookingPath } from '../../routes';
 import type { RepairReport, RepairStatus } from '../../types';
 
 /**
- * Repair and breakdown reports from riders. Admins set the status, add a note and, for a repair the customer arranged
- * themselves, record the approved reimbursement. Recording an amount moves no money.
+ * Repair and breakdown reports from riders, with any photos they attached. Admins set the status, add a note and, for
+ * a repair the customer arranged themselves, record the approved reimbursement, which is deducted from the rental's
+ * final bill once the report is Resolved. Saving moves no money by itself.
  */
 export default function Repairs() {
   const list = useLoad(() => api.get<RepairReport[]>('/admin/repairs'));
@@ -23,8 +27,9 @@ export default function Repairs() {
           <span className="eyebrow">Operations</span>
           <h1>Repairs &amp; breakdowns</h1>
           <p className="muted">
-            Problems reported by riders during a rental. An approved reimbursement is a record only: refund it through
-            the payment provider separately if you decide to pay it.
+            Problems reported by riders during a rental. An approved reimbursement on a Resolved report is deducted
+            from the customer&apos;s final bill when the rental ends; the customer&apos;s claimed amount never is. Once the
+            final bill is calculated the reimbursement can no longer change.
           </p>
         </div>
         {list.data && (
@@ -65,11 +70,11 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setSaved(false);
-    const amount = approved.trim() === '' ? null : Number(approved);
-    if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
-      action.setError('Enter the approved amount as a number of rupees, or leave it empty.');
+    if (approved.trim() !== '' && !isRupeeAmount(approved)) {
+      action.setError('Enter the approved amount as rupees (at most two decimals), or leave it empty.');
       return;
     }
+    const amount = approved.trim() === '' ? null : Number(approved);
     const body = { status, adminNote: note.trim() === '' ? null : note, approvedAmount: r.selfArranged ? amount : null };
     const ok = await action.run(() =>
       api.put<RepairReport>(`/admin/repairs/${encodeURIComponent(r.id)}`, body).then(() => true),
@@ -96,9 +101,11 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
       {r.selfArranged && (
         <p className="small">
           <strong>Repair arranged by the customer</strong>
-          {r.claimedAmount != null && <> · claimed {money(r.claimedAmount)}</>}
+          {r.claimedAmount != null && <> · customer claimed {money(r.claimedAmount)} (not deducted until approved)</>}
+          {r.approvedAmount != null && <> · approved {money(r.approvedAmount)}. {reimbursementNote(r.status, r.approvedAmount)}</>}
         </p>
       )}
+      <RepairPhotos reportId={r.id} photos={r.photos ?? []} showEmpty />
       <form className="admin-form" onSubmit={save} aria-label={`Review ${r.bookingReference}`}>
         <div className="form-grid">
           <label htmlFor={`${prefix}-status`}>
@@ -121,7 +128,11 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
                 step="0.01"
                 value={approved}
                 onChange={(e) => setApproved(e.target.value)}
+                aria-describedby={`${prefix}-approved-help`}
               />
+              <span id={`${prefix}-approved-help`} className="field-hint">
+                {APPROVAL_HELP}
+              </span>
             </label>
           )}
         </div>

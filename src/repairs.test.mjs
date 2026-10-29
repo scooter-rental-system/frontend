@@ -78,8 +78,10 @@ describe('admin repairs page', () => {
     assert.match(page, /\{r\.selfArranged && \(\s*<label htmlFor=\{`\$\{prefix\}-approved`\}>/);
   });
 
-  it('says plainly that an approved reimbursement moves no money', () => {
-    assert.match(page, /An approved reimbursement is a record only/);
+  it('says plainly how an approved reimbursement affects the bill, and moves no money itself', () => {
+    // BE-043: an approved amount on a Resolved report is deducted from the final bill; the claim never is.
+    assert.match(page, /An approved reimbursement on a Resolved report is deducted\s+from the customer&apos;s final bill/);
+    assert.match(page, /the customer&apos;s claimed amount never is/);
     assert.doesNotMatch(page, /stripe|refund\(/i);
   });
 });

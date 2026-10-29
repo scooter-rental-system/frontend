@@ -224,7 +224,9 @@ export default function BookingDetail() {
         </div>
       )}
 
-      {b.stage === 'BALANCE_DUE' && demoRental && <DemoSettlement booking={b} />}
+      {b.stage === 'BALANCE_DUE' && demoRental && (
+        <DemoSettlement booking={b} invoice={invoices.data?.find((i) => i.kind === 'FINAL')} />
+      )}
       {b.stage === 'BALANCE_DUE' && !demoRental && (
         <BalanceDue booking={b} isOwner={isOwner} retrying={end.busy} onRetry={doEnd} onPaid={refresh} />
       )}
@@ -371,7 +373,8 @@ function BalanceDue({
 }
 
 /** The ended viva demo rental: the final bill from the normal pricing rules, clearly not charged. */
-function DemoSettlement({ booking: b }: { booking: Booking }) {
+function DemoSettlement({ booking: b, invoice }: { booking: Booking; invoice?: Invoice }) {
+  const reimbursement = invoice ? invoice.subtotal - invoice.total : 0;
   return (
     <section className="card stack action-panel" aria-labelledby="demo-bill-title">
       <div className="checkout-task__head">
@@ -382,6 +385,16 @@ function DemoSettlement({ booking: b }: { booking: Booking }) {
         <span className="muted">Calculated final total</span>
         <strong className="price">{money(b.pendingTotalCost)}</strong>
       </div>
+      {invoice && (
+        <dl className="small demo-bill">
+          <DetailRow label="Rental subtotal">{money(invoice.subtotal)}</DetailRow>
+          {reimbursement > 0 && (
+            <DetailRow label="Approved repair reimbursement">−{money(reimbursement)}</DetailRow>
+          )}
+          <DetailRow label="Adjusted final total">{money(invoice.total)}</DetailRow>
+          <DetailRow label="Payment">Not charged — viva demo</DetailRow>
+        </dl>
+      )}
       <p className="small">
         The rental ended {dateTime(b.endedAt)}. The total uses the normal pricing rules; the final invoice below shows
         each line.
@@ -487,7 +500,7 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
         <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
         <Stat label="Speed" value={speed.text} hint={speed.over ? `Over ${SPEED_LIMIT_KMH} km/h` : undefined} />
-        <Stat label="Estimated total" value={money(estimate)} hint="Final total when you end the rental" />
+        <Stat label="Estimated total" value={money(estimate)} hint="Before any approved repair reimbursement" />
       </div>
       {(p?.latitude == null || p.longitude == null) && tracking && (
         <p className="muted small">No location has been reported for this rental yet, so there is no map position to show.</p>
