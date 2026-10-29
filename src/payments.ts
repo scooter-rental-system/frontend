@@ -6,7 +6,11 @@ import type { Booking, PaymentConfig } from './types';
  * told by Stripe's webhook, says so.
  */
 
+/** Admin wording (Payments & billing), followed there by the configuration detail. */
 export const PAYMENTS_UNAVAILABLE = 'Payments are currently unavailable.';
+/** Customer wording at checkout when no payment provider is configured; nothing is charged or confirmed. */
+export const CUSTOMER_PAYMENTS_UNAVAILABLE =
+  'Card payment is temporarily unavailable. Please try again after payment service configuration is complete.';
 export const PAYMENT_SUBMITTED = 'Payment submitted. Waiting for confirmation from the payment provider…';
 export const PAYMENT_STILL_CONFIRMING =
   'Your payment was submitted and is still being confirmed by the payment provider. This page shows the result ' +
@@ -20,7 +24,7 @@ export type PaymentSetup =
 /** Card payments only work with the Stripe provider and its publishable key; anything else is unavailable. */
 export function paymentSetup(config: PaymentConfig | null | undefined): PaymentSetup {
   if (!config || !config.available || config.provider !== SUPPORTED_PROVIDER || !config.publishableKey) {
-    return { ready: false, message: PAYMENTS_UNAVAILABLE };
+    return { ready: false, message: CUSTOMER_PAYMENTS_UNAVAILABLE };
   }
   return { ready: true, publishableKey: config.publishableKey, currency: config.currency };
 }

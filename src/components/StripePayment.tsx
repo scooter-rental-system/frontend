@@ -7,7 +7,7 @@ import {
   confirmAndAwaitBackend,
   PAYMENT_STILL_CONFIRMING,
   PAYMENT_SUBMITTED,
-  PAYMENTS_UNAVAILABLE,
+  CUSTOMER_PAYMENTS_UNAVAILABLE,
   paymentSetup,
   returnUrl,
   singleFlight,
@@ -85,7 +85,7 @@ export function StripePayment({
         }
         const intent = await createIntent();
         if (intent.provider !== SUPPORTED_PROVIDER || !intent.clientSecret) {
-          show({ state: 'unavailable', message: PAYMENTS_UNAVAILABLE });
+          show({ state: 'unavailable', message: CUSTOMER_PAYMENTS_UNAVAILABLE });
           return;
         }
         show({ state: 'ready', stripe: stripeFor(config.publishableKey), clientSecret: intent.clientSecret });

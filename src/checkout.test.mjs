@@ -223,3 +223,23 @@ describe('ScooterBook keeps its booking behaviour', () => {
     assert.match(book, /<Link to="\/#fleet" className="back-link">/);
   });
 });
+
+describe('checkout summary (open-ended rental)', () => {
+  const checkout = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), 'pages', 'Checkout.tsx'), 'utf8')
+    .replace(/\r\n/g, '\n');
+
+  it('lists each rate on its own labelled row', () => {
+    for (const label of ['Daily rate', 'Extra-hour rate', 'Excess-distance rate', 'Included distance']) {
+      assert.match(checkout, new RegExp(`<dt>${label}</dt>`), label);
+    }
+    assert.match(checkout, /\{INCLUDED_KM_PER_DAY\} km per charged rental day/);
+  });
+
+  it('explains pay now and keeps the final total unknown until the rental ends', () => {
+    assert.match(checkout, /Pay now covers the one-hour minimum\{b\.gear\.length > 0 && ' and the first day of your camping gear'\}/);
+    assert.match(checkout, /final rental charge is calculated when the rental ends using rental time, excess distance and any camping/);
+    assert.match(checkout, /<dt>Final total<\/dt>\s*<dd>Not known yet/);
+    assert.match(checkout, /<dt>Balance<\/dt>/);
+    assert.match(checkout, /<dd className="num">\{money\(b\.initialCharge\)\}<\/dd>/);
+  });
+});

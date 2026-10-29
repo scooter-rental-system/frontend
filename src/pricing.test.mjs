@@ -104,7 +104,7 @@ describe('pricing shown to customers', () => {
     for (const file of [['components', 'ScooterCard.tsx'], ['pages', 'ScooterBook.tsx'], ['pages', 'Checkout.tsx']]) {
       const text = read(...file);
       assert.match(text, /money\((s|b\.scooter)\.dailyRate\)/, file.join('/'));
-      assert.match(text, /extra hour/, file.join('/'));
+      assert.match(text, /extra[- ]hour/i, file.join('/'));
       assert.doesNotMatch(text, /\b(2,?500|3,?000|3,?200|4,?500)\b/, file.join('/'));
     }
   });

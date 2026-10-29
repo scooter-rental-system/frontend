@@ -2766,3 +2766,11 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
 .repair-list, .repair-admin-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
 .repair-list li { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface-2); }
 .repair-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Checkout summary: labelled rate rows that wrap on narrow screens; the pay-now, final-total and balance stages. */
+.summary-subtitle { font-size: 0.875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.summary-line dd { text-align: right; overflow-wrap: anywhere; }
+.summary-rates .summary-line dd.num { white-space: nowrap; }
+.summary-stages div { flex-wrap: wrap; }
+.summary-stages dt { width: 88px; font-weight: 700; color: var(--text); }
+.summary-stages dd { flex: 1 1 160px; min-width: 0; }

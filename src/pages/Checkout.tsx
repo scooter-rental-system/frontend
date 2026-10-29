@@ -10,7 +10,7 @@ import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
 import { bookingPath } from '../routes';
-import { DISTANCE_PRICING_RULE, GEAR_PRICING_RULE, SCOOTER_PRICING_RULE } from '../pricing';
+import { DISTANCE_PRICING_RULE, GEAR_PRICING_RULE, INCLUDED_KM_PER_DAY, SCOOTER_PRICING_RULE } from '../pricing';
 import type { Booking, Contract, PaymentIntent } from '../types';
 
 export default function Checkout() {
@@ -112,7 +112,7 @@ export default function Checkout() {
               <span className={`badge ${c.signed ? 'blue' : ''}`}>{c.signed ? 'Ready to pay' : 'Locked'}</span>
             </div>
             <div className="checkout-amount">
-              <span className="muted">Amount due now</span>
+              <span className="muted">Pay now</span>
               <strong className="price">{money(b.initialCharge)}</strong>
             </div>
             {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
@@ -168,12 +168,23 @@ export default function Checkout() {
               <dd>{b.pickupLocation}</dd>
             </div>
           </dl>
-          <dl className="summary-lines">
+          <h3 className="summary-subtitle">Rates</h3>
+          <dl className="summary-lines summary-rates">
             <div className="summary-line">
-              <dt>Scooter</dt>
-              <dd className="num">
-                {money(b.scooter.dailyRate)}/day · {money(b.scooter.hourlyRate)}/extra hour + {money(b.scooter.perKmRate)}/km
-              </dd>
+              <dt>Daily rate</dt>
+              <dd className="num">{money(b.scooter.dailyRate)}</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Extra-hour rate</dt>
+              <dd className="num">{money(b.scooter.hourlyRate)}</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Excess-distance rate</dt>
+              <dd className="num">{money(b.scooter.perKmRate)}/km</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Included distance</dt>
+              <dd>{INCLUDED_KM_PER_DAY} km per charged rental day</dd>
             </div>
             {b.gear.map((g) => (
               <div key={g.gearItemId} className="summary-line">
@@ -183,16 +194,48 @@ export default function Checkout() {
                 <dd className="num">{money(g.dailyRate * g.quantity)}/day</dd>
               </div>
             ))}
+          </dl>
+
+          <h3 className="summary-subtitle">Pay now</h3>
+          <dl className="summary-lines">
+            <div className="summary-line">
+              <dt>One-hour minimum</dt>
+              <dd className="num">{money(b.scooter.hourlyRate)}</dd>
+            </div>
+            {b.gear.map((g) => (
+              <div key={g.gearItemId} className="summary-line">
+                <dt>
+                  {g.name} × {g.quantity}, first day
+                </dt>
+                <dd className="num">{money(g.dailyRate * g.quantity)}</dd>
+              </div>
+            ))}
             <div className="summary-line summary-line--total">
               <dt>Pay now</dt>
               <dd className="num">{money(b.initialCharge)}</dd>
             </div>
           </dl>
-          <p className="muted small">
-            Pay now covers the one-hour minimum and 1 day of gear. When you end the rental, the total for the rental
-            time, the kilometres from the GPS log and the gear days is calculated, and the balance is charged to the
-            same card.
+          <p className="small">
+            Pay now covers the one-hour minimum{b.gear.length > 0 && ' and the first day of your camping gear'}. Your
+            final rental charge is calculated when the rental ends using rental time, excess distance and any camping
+            gear.
           </p>
+
+          <dl className="summary-facts summary-stages small">
+            <div>
+              <dt>Pay now</dt>
+              <dd>{money(b.initialCharge)}, charged when you pay below.</dd>
+            </div>
+            <div>
+              <dt>Final total</dt>
+              <dd>Not known yet: the rental has no fixed end. It is calculated when you end the rental.</dd>
+            </div>
+            <div>
+              <dt>Balance</dt>
+              <dd>Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).</dd>
+            </div>
+          </dl>
+
           <p className="muted small">{SCOOTER_PRICING_RULE}</p>
           <p className="muted small">{DISTANCE_PRICING_RULE}</p>
           {b.gear.length > 0 && <p className="muted small">{GEAR_PRICING_RULE}</p>}
