@@ -33,9 +33,24 @@ describe('change password form', () => {
     assert.doesNotMatch(form, /confirmPassword|newPasswordConfirm/);
   });
 
-  it('treats the 204 response as success explicitly', () => {
+  it('treats the 204 response as success explicitly and then closes the dialog', () => {
     assert.match(form, /\.then\(\(\) => true\)/);
-    assert.match(form, /if \(ok\) \{/);
+    assert.match(form, /if \(ok\) onChanged\(\);/);
+    assert.match(form, /onChanged=\{\(\) => \{\s*setOpen\(false\);\s*setChanged\(true\);/);
+  });
+
+  it('shows only a button on the profile and opens an accessible modal dialog', () => {
+    assert.match(form, /className="btn-change-password"/);
+    assert.match(form, /\{open && \(\s*<ChangePasswordDialog/);
+    assert.match(form, /<dialog\s+ref=\{ref\}/);
+    assert.match(form, /dialog\.showModal\(\)/);
+    assert.match(form, /aria-labelledby=\{ids\.title\}/);
+    assert.match(form, /trigger\?\.focus\(\);/);
+  });
+
+  it('closes on Escape or Cancel, but not while the change is being sent', () => {
+    assert.match(form, /onCancel=\{\(e\) => \{[^}]*e\.preventDefault\(\);\s*if \(!action\.busy\) onClose\(\);/);
+    assert.match(form, /<button type="button" onClick=\{onClose\} disabled=\{action\.busy\}>\s*Cancel/);
   });
 
   it('has labelled password fields with the right autocomplete hints and status messages', () => {

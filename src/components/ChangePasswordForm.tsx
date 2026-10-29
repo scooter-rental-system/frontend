@@ -1,25 +1,77 @@
-import { FormEvent, useId, useState } from 'react';
+import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAction } from '../hooks';
 import { passwordChangeProblem } from '../account';
 import { ErrorAlert } from './ui';
 
 /**
- * Change the signed-in user's password (PUT /api/me/password), for customers and admins. The backend checks the
- * current password and hashes the new one; the confirmation is checked here and never sent.
+ * "Change password" for customers and admins: a button that opens an accessible dialog (PUT /api/me/password).
+ * The backend checks the current password and hashes the new one; the confirmation is checked here and never sent.
+ * After a successful change the dialog closes (its fields go with it) and the page announces the change.
  */
 export function ChangePasswordForm() {
+  const [open, setOpen] = useState(false);
+  const [changed, setChanged] = useState(false);
+  const titleId = useId();
+
+  return (
+    <section className="card stack" aria-labelledby={titleId}>
+      <h2 id={titleId}>Password</h2>
+      <p className="muted small">Change the password you use to sign in.</p>
+      {changed && (
+        <div className="alert success" role="status">
+          Your password has been changed.
+        </div>
+      )}
+      <button
+        type="button"
+        className="btn-change-password"
+        style={{ alignSelf: 'flex-start' }}
+        onClick={() => {
+          setChanged(false);
+          setOpen(true);
+        }}
+      >
+        Change password
+      </button>
+      {open && (
+        <ChangePasswordDialog
+          onClose={() => setOpen(false)}
+          onChanged={() => {
+            setOpen(false);
+            setChanged(true);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * A modal <dialog> (showModal: focus moves in, the page behind is inert). Escape and Cancel close it, except while
+ * the change is being sent; focus returns to the button that opened it.
+ */
+function ChangePasswordDialog({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
   const ids = { title: useId(), current: useId(), next: useId(), confirm: useId(), hint: useId() };
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const action = useAction();
+
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => {
+      if (dialog?.open) dialog.close();
+      trigger?.focus();
+    };
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setDone(false);
     const issue = passwordChangeProblem(current, next, confirm);
     setProblem(issue);
     if (issue) return;
@@ -27,17 +79,23 @@ export function ChangePasswordForm() {
     const ok = await action.run(() =>
       api.put<void>('/me/password', { currentPassword: current, newPassword: next }).then(() => true),
     );
-    if (ok) {
-      setDone(true);
-      setCurrent('');
-      setNext('');
-      setConfirm('');
-    }
+    if (ok) onChanged();
   };
 
   return (
-    <section className="card stack" aria-labelledby={ids.title}>
-      <h2 id={ids.title}>Change password</h2>
+    <dialog
+      ref={ref}
+      className="confirm-dialog password-dialog"
+      aria-labelledby={ids.title}
+      onCancel={(e) => {
+        // Escape: close through React state, but not while the change is being sent.
+        e.preventDefault();
+        if (!action.busy) onClose();
+      }}
+    >
+      <h2 id={ids.title} className="confirm-dialog__title">
+        Change password
+      </h2>
       <form className="stack" onSubmit={submit} noValidate>
         <label htmlFor={ids.current}>
           Current password
@@ -45,6 +103,7 @@ export function ChangePasswordForm() {
             id={ids.current}
             type="password"
             autoComplete="current-password"
+            autoFocus
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
           />
@@ -76,15 +135,15 @@ export function ChangePasswordForm() {
           />
         </label>
         <ErrorAlert error={problem ?? action.error} />
-        {done && (
-          <div className="alert success" role="status">
-            Your password has been changed.
-          </div>
-        )}
-        <button type="submit" className="primary" disabled={action.busy} style={{ alignSelf: 'flex-start' }}>
-          {action.busy ? 'Changing…' : 'Change password'}
-        </button>
+        <div className="confirm-dialog__actions">
+          <button type="button" onClick={onClose} disabled={action.busy}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={action.busy}>
+            {action.busy ? 'Changing…' : 'Change password'}
+          </button>
+        </div>
       </form>
-    </section>
+    </dialog>
   );
 }
