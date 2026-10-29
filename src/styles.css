@@ -2777,3 +2777,23 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
 .summary-stages div { flex-wrap: wrap; }
 .summary-stages dt { width: 88px; font-weight: 700; color: var(--text); }
 .summary-stages dd { flex: 1 1 160px; min-width: 0; }
+
+/* Viva demo mode (backend profile "demo" only): a banner on every page and the admin demo controls. */
+.demo-banner {
+  padding: 6px var(--space-4);
+  background: var(--warning-soft);
+  border-bottom: 1px solid var(--warning);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+}
+.demo-panel { box-shadow: inset 3px 0 0 var(--warning); }
+.demo-panel__action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.demo-panel__action p { flex: 1 1 16rem; margin: 0; }

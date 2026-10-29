@@ -9,8 +9,9 @@ const TITLE: Record<Invoice['kind'], string> = {
 };
 
 export default function InvoiceView({ invoice }: { invoice: Invoice }) {
-  // Final invoices take their status from the booking's payment; earlier ones kept their own.
-  const status = invoice.kind === 'FINAL' ? invoice.paymentStatus : invoice.status;
+  // Final invoices take their status from the booking's payment (unless voided, as a closed viva demo rental's);
+  // earlier ones kept their own.
+  const status = invoice.kind === 'FINAL' && invoice.status !== 'VOID' ? invoice.paymentStatus : invoice.status;
   return (
     <article className="card stack invoice" aria-labelledby={`invoice-${invoice.id}`}>
       <div className="row between">

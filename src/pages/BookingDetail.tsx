@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
+import { DemoControls } from '../components/DemoMode';
 import { RepairPanel } from '../components/RepairPanel';
 import { useConfirm } from '../useConfirm';
 import { StripePayment } from '../components/StripePayment';
@@ -12,6 +13,7 @@ import InvoiceView from '../components/InvoiceView';
 import MapView from '../components/MapView';
 import { DetailRow, ErrorAlert, Loading, StageBadge, Stat, StatusBadge } from '../components/ui';
 import { paymentLabel } from '../checkout';
+import { DEMO_RENTAL_NOTE, demoActions, demoBlocker, isDemoRental } from '../demo';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
 import {
@@ -25,6 +27,7 @@ import {
 import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
 import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
 import { adminGpsHistoryPath, checkoutPath } from '../routes';
+import { useDemoMode } from '../useDemoMode';
 import { useRiderGps } from '../useRiderGps';
 import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
@@ -103,13 +106,16 @@ export default function BookingDetail() {
   const end = useAction();
   const { confirm, dialog } = useConfirm();
   const paymentReturn = usePaymentReturn(id, booking.setData, invoices.reload);
+  const demoMode = useDemoMode();
 
   if (booking.loading) return <Loading />;
   if (!booking.data) return <ErrorAlert error={booking.error} />;
   const b = booking.data;
   const isOwner = user?.id === b.customer.id;
   const canCancel = b.stage === 'AWAITING_PAYMENT' || b.stage === 'PAYMENT_FAILED' || b.stage === 'UPCOMING';
-  const canEnd = b.stage === 'IN_PROGRESS' && (isOwner || isAdmin(user?.role));
+  // A viva demo rental has no payment to settle against: only the admin demo controls end it.
+  const demoRental = isDemoRental(b);
+  const canEnd = b.stage === 'IN_PROGRESS' && (isOwner || isAdmin(user?.role)) && !demoRental;
 
   const refresh = () => {
     booking.reload();
@@ -171,7 +177,7 @@ export default function BookingDetail() {
             <StageBadge stage={b.stage} status={b.status} />
             <span className="muted small">{STAGE_TEXT[b.stage]}</span>
           </div>
-          <p className="booking-header__help">{STAGE_HELP[b.stage]}</p>
+          <p className="booking-header__help">{demoRental ? DEMO_RENTAL_NOTE : STAGE_HELP[b.stage]}</p>
           <p className="muted small">
             {b.scooter.model} ({b.scooter.plateNumber}) · {b.pickupLocation}
           </p>
@@ -197,6 +203,15 @@ export default function BookingDetail() {
 
       <BookingTimeline stage={b.stage} />
 
+      {inAdmin && (
+        <DemoControls
+          booking={b}
+          actions={demoActions(b, demoMode, isAdmin(user?.role))}
+          blocker={demoBlocker(b, demoMode, isAdmin(user?.role))}
+          onChanged={refresh}
+        />
+      )}
+
       <ErrorAlert error={cancel.error} />
       {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
         <div className="alert" role="alert">
@@ -209,7 +224,8 @@ export default function BookingDetail() {
         </div>
       )}
 
-      {b.stage === 'BALANCE_DUE' && (
+      {b.stage === 'BALANCE_DUE' && demoRental && <DemoSettlement booking={b} />}
+      {b.stage === 'BALANCE_DUE' && !demoRental && (
         <BalanceDue booking={b} isOwner={isOwner} retrying={end.busy} onRetry={doEnd} onPaid={refresh} />
       )}
       {b.stage !== 'BALANCE_DUE' && <ErrorAlert error={end.error} />}
@@ -261,13 +277,18 @@ export default function BookingDetail() {
                 {b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}
               </DetailRow>
             )}
-            <DetailRow label="Charged at booking">
-              {money(b.initialCharge)} (the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)
+            <DetailRow label={demoRental ? 'Initial charge' : 'Charged at booking'}>
+              {money(b.initialCharge)}{' '}
+              {demoRental
+                ? '(not charged: no payment was taken for this viva demo rental)'
+                : '(the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)'}
             </DetailRow>
             {(b.totalCost ?? b.pendingTotalCost) != null && (
               <DetailRow label="Final total">
                 <strong>{money(b.totalCost ?? b.pendingTotalCost)}</strong>
-                {b.totalCost == null && <span className="muted small"> (balance due)</span>}
+                {b.totalCost == null && (
+                  <span className="muted small">{demoRental ? ' (calculated, not charged)' : ' (balance due)'}</span>
+                )}
               </DetailRow>
             )}
           </dl>
@@ -349,12 +370,35 @@ function BalanceDue({
   );
 }
 
+/** The ended viva demo rental: the final bill from the normal pricing rules, clearly not charged. */
+function DemoSettlement({ booking: b }: { booking: Booking }) {
+  return (
+    <section className="card stack action-panel" aria-labelledby="demo-bill-title">
+      <div className="checkout-task__head">
+        <h2 id="demo-bill-title">Final bill calculated</h2>
+        <span className="badge amber">Not charged</span>
+      </div>
+      <div className="checkout-amount">
+        <span className="muted">Calculated final total</span>
+        <strong className="price">{money(b.pendingTotalCost)}</strong>
+      </div>
+      <p className="small">
+        The rental ended {dateTime(b.endedAt)}. The total uses the normal pricing rules; the final invoice below shows
+        each line.
+      </p>
+      <div className="alert info" role="note">
+        No payment was taken: this is a viva demo rental, so the amount was calculated but not charged.
+      </div>
+    </section>
+  );
+}
+
 function PaymentCard({ booking: b }: { booking: Booking }) {
   const p = b.payment;
   return (
     <div className="card stack">
       <h2>Payment</h2>
-      {!p && <p className="muted">No payment yet.</p>}
+      {!p && <p className="muted">{isDemoRental(b) ? 'No payment taken (viva demo rental).' : 'No payment yet.'}</p>}
       {p && (
         <div className="row between">
           <div>
