@@ -13,6 +13,8 @@ const STATUS_TONE: Record<string, string> = {
   RENTED: 'blue',
   IN_PROGRESS: 'blue',
   PENDING: 'amber',
+  BALANCE_DUE: 'amber',
+  REFUND_DUE: 'amber',
   MAINTENANCE: 'amber',
   SCHEDULED: 'amber',
   ISSUED: 'amber',

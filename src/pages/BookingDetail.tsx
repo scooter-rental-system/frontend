@@ -47,13 +47,14 @@ import {
   type PaymentPurpose,
 } from '../payments';
 import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
+import { UNRESOLVED_REPAIRS_ADMIN, UNRESOLVED_REPAIRS_CUSTOMER, unresolvedReimbursements } from '../repairs';
 import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
 import { adminGpsHistoryPath, checkoutPath } from '../routes';
 import { useDemoMode } from '../useDemoMode';
 import { useRiderGps } from '../useRiderGps';
 import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
-import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, Tracking } from '../types';
+import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, RepairReport, Tracking } from '../types';
 
 const STAGE_TEXT: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'Awaiting payment',
@@ -118,6 +119,8 @@ export default function BookingDetail() {
   const { user } = useAuth();
   const booking = useLoad(() => api.get<Booking>(bookingApi), [id]);
   const invoices = useLoad(() => api.get<Invoice[]>(`${bookingApi}/invoices`), [id]);
+  // Unresolved self-arranged repair reports hold back the final bill (the backend refuses to end the rental).
+  const repairs = useLoad(() => api.get<RepairReport[]>(`${bookingApi}/repairs`), [id]);
   const [showContract, setShowContract] = useState(false);
   const contract = useLoad(
     () => (showContract ? api.get<Contract>(`${bookingApi}/contract`) : Promise.resolve(null)),
@@ -145,9 +148,12 @@ export default function BookingDetail() {
   const transfer = isTransferBooking(b);
   const transferPending = transfer && b.status === 'PENDING' && b.payment?.status === 'PENDING';
 
+  const openRepairs = unresolvedReimbursements(repairs.data ?? []);
+
   const refresh = () => {
     booking.reload();
     invoices.reload();
+    repairs.reload();
   };
 
   const doCancel = async () => {
@@ -231,7 +237,7 @@ export default function BookingDetail() {
             </Link>
           )}
           {canEnd && (
-            <button className="primary booking-header__end" onClick={doEnd} disabled={end.busy}>
+            <button className="primary booking-header__end" onClick={doEnd} disabled={end.busy || openRepairs.length > 0}>
               {end.busy ? 'Ending rental…' : 'End rental'}
             </button>
           )}
@@ -244,6 +250,18 @@ export default function BookingDetail() {
       </header>
 
       <BookingTimeline stage={b.stage} />
+
+      {canEnd && openRepairs.length > 0 && (
+        <div className="alert warning" role="status">
+          {inAdmin ? UNRESOLVED_REPAIRS_ADMIN : UNRESOLVED_REPAIRS_CUSTOMER}
+          {inAdmin && (
+            <>
+              {' '}
+              <Link to="/admin/repairs">Open Repairs</Link>
+            </>
+          )}
+        </div>
+      )}
 
       {inAdmin && (
         <DemoControls

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { invoiceStatus } from './transfers.ts';
 import {
   DEMO_BANNER, DEMO_HELP, DEMO_LABEL, DEMO_RENTAL_NOTE, DEMO_STATUS_PATH, DEMO_UNSIGNED, DEMO_WARNING, demoActions,
   demoBlocker, isDemoRental,
@@ -112,7 +113,9 @@ describe('a demo rental', () => {
   });
 
   it('shows a voided final invoice as void', () => {
-    assert.match(invoice, /invoice\.kind === 'FINAL' && invoice\.status !== 'VOID' \? invoice\.paymentStatus : invoice\.status/);
+    assert.match(invoice, /const status = invoiceStatus\(invoice\);/);
+    const voided = { kind: 'FINAL', status: 'VOID', paymentStatus: 'SUCCESS', balanceDue: null, refundDue: null };
+    assert.equal(invoiceStatus(voided), 'VOID');
   });
 });
 

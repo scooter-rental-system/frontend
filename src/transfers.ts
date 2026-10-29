@@ -8,6 +8,7 @@
 import type {
   AdminReceipt,
   Booking,
+  Invoice,
   Payment,
   PaymentMethod,
   PaymentOptions,
@@ -168,6 +169,19 @@ export function transferStep(b: Booking): TransferStep | null {
     return { kind: 'balance', amount: p.balanceDue, rejected: last?.status === 'REJECTED' ? last : null };
   }
   return null;
+}
+
+/**
+ * The status badge of an invoice. A final invoice takes the payment's status, but while a balance or a refund is
+ * still due the payment of the first charge being SUCCESS does not mean the bill is settled.
+ */
+export function invoiceStatus(
+  invoice: Pick<Invoice, 'kind' | 'status' | 'paymentStatus' | 'balanceDue' | 'refundDue'>,
+): string | null {
+  if (invoice.kind !== 'FINAL' || invoice.status === 'VOID') return invoice.status;
+  if (invoice.refundDue != null) return 'REFUND_DUE';
+  if (invoice.balanceDue != null) return 'BALANCE_DUE';
+  return invoice.paymentStatus;
 }
 
 // ─── Admin actions ───────────────────────────────────────────────────────────

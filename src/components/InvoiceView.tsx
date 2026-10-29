@@ -1,5 +1,5 @@
 import { date, money } from '../format';
-import { isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
+import { invoiceStatus, isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
 import type { Invoice } from '../types';
 import { StatusBadge } from './ui';
 
@@ -11,8 +11,8 @@ const TITLE: Record<Invoice['kind'], string> = {
 
 export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   // Final invoices take their status from the booking's payment (unless voided, as a closed viva demo rental's);
-  // earlier ones kept their own.
-  const status = invoice.kind === 'FINAL' && invoice.status !== 'VOID' ? invoice.paymentStatus : invoice.status;
+  // earlier ones kept their own. While a balance or a refund is still due, that is shown instead.
+  const status = invoiceStatus(invoice);
   // A final invoice lists the rental charges, then any approved repair reimbursement (a negative line) after the
   // rental subtotal; its total is the adjusted final total.
   const credits = invoice.kind === 'FINAL' ? invoice.lines.filter((l) => l.amount < 0) : [];

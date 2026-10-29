@@ -1,7 +1,7 @@
 /**
  * Repair and breakdown reports (backend BE-039). Kept free of runtime imports so `npm test` can run them.
  */
-import type { RepairStatus } from './types';
+import type { RepairReport, RepairStatus } from './types';
 
 export const REPAIR_GUIDANCE =
   'If a breakdown or repair issue occurs, report it immediately. We can arrange assistance/mechanic support. If you arrange an emergency repair yourself, reimbursement is subject to admin review and approval. Keep the receipt/proof and repair details.';
@@ -102,6 +102,19 @@ export function reimbursementNote(status: RepairStatus, approved: number | null)
     ? 'Deducted from the final bill.'
     : 'Deducted from the final bill once the report is resolved.';
 }
+
+/**
+ * Self-arranged reports not yet RESOLVED: an admin may still approve a reimbursement on them, so the backend does
+ * not calculate the final bill (end the rental) until they are resolved.
+ */
+export const unresolvedReimbursements = (reports: readonly Pick<RepairReport, 'selfArranged' | 'status'>[]) =>
+  reports.filter((r) => r.selfArranged && r.status !== 'RESOLVED');
+
+export const UNRESOLVED_REPAIRS_ADMIN =
+  'This rental has unresolved repair reports. Resolve them before calculating the final bill: open Repairs, review the report, enter any approved reimbursement, set it to Resolved and save, then come back and end the rental.';
+
+export const UNRESOLVED_REPAIRS_CUSTOMER =
+  'Your repair report is still being reviewed. The rental can be ended once our team has resolved it, so any approved reimbursement is included in your final bill.';
 
 export const CLAIM_NOTE = 'A claimed amount is reviewed by our team; only an approved amount reduces the bill.';
 export const APPROVAL_HELP =

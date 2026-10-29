@@ -13,6 +13,7 @@ import { loadPaymentConfig } from '../../stripe';
 import {
   ADMIN_RECEIPTS_PATH,
   filterReceipts,
+  invoiceStatus,
   matchesMethodFilter,
   METHOD_FILTERS,
   PAYMENT_METHOD_LABEL,
@@ -271,9 +272,7 @@ export default function Billing() {
                       <td data-label="Customer">{inv.customerName}</td>
                       <td data-label="Kind">{inv.kind.toLowerCase()}</td>
                       <td data-label="Status">
-                        {(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status) && (
-                          <StatusBadge status={(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status)!} />
-                        )}
+                        {invoiceStatus(inv) && <StatusBadge status={invoiceStatus(inv)!} />}
                       </td>
                       <td data-label="Total" className="num">
                         {money(inv.total)}
