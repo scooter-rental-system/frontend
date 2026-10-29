@@ -94,7 +94,8 @@ describe('admin GPS history of one rental', () => {
   });
 
   it('draws the stored route on the existing map with start and end markers, and lists the points in order', () => {
-    assert.match(page, /<MapView\s+markers=\{markers\}\s+trail=\{h\.points\.map/);
+    assert.match(page, /trail=\{h\.points\.length > 1 \? h\.points\.map\(/);
+    assert.match(page, /center=\{view\.center\}\s+zoom=\{view\.zoom\}/);
     assert.match(page, /id: 'start'/);
     assert.match(page, /id: 'end'/);
     assert.match(page, /<caption className="sr-only">GPS reports for \{h\.reference\}, oldest first<\/caption>/);

@@ -189,3 +189,8 @@ export function gpsCounts(positions: readonly LivePosition[]) {
     onRental: positions.filter((p) => p.activeBookingReference).length,
   };
 }
+
+/** The same name the backend gives the bookings CSV: one day, or a from-to range. */
+export function bookingsCsvName(from: string, to: string): string {
+  return from === to ? `bookings-${from}.csv` : `bookings-${from}-to-${to}.csv`;
+}

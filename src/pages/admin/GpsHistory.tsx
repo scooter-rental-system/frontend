@@ -2,8 +2,9 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { BackLink } from '../../components/BackLink';
 import MapView, { MapMarker } from '../../components/MapView';
-import { ErrorAlert, Loading, StatusBadge } from '../../components/ui';
+import { LoadError, Loading, StatusBadge } from '../../components/ui';
 import { dateTime } from '../../format';
+import { NO_HISTORY_HELP, NO_HISTORY_TITLE, ONE_POINT_HELP, routeView } from '../../gpsHistory';
 import { useLoad } from '../../hooks';
 import { adminBookingPath } from '../../routes';
 import type { BookingGpsHistory } from '../../types';
@@ -20,10 +21,18 @@ export default function GpsHistory() {
   );
 
   if (history.loading && !history.data) return <Loading what="Loading the GPS history" />;
-  if (!history.data) return <ErrorAlert error={history.error} />;
+  if (!history.data) {
+    return (
+      <div className="admin-page">
+        <BackLink fallback="/admin/gps" label="Live GPS" />
+        <LoadError error={`We couldn't load the GPS history. ${history.error ?? ''}`} onRetry={history.reload} />
+      </div>
+    );
+  }
   const h = history.data;
   const first = h.points[0];
   const last = h.points[h.points.length - 1];
+  const view = routeView(h.points);
 
   // Existing MapView marker kinds: the start in green, the latest (or final) position in blue.
   const markers: MapMarker[] = [];
@@ -84,17 +93,29 @@ export default function GpsHistory() {
         </div>
       </dl>
 
-      {h.points.length === 0 ? (
-        <p className="muted empty-note">No GPS reports are stored for this rental (none received, or past the retention period).</p>
+      {h.points.length === 0 || !view ? (
+        <div className="empty-state" role="status">
+          <h2 className="section-title">{NO_HISTORY_TITLE}</h2>
+          <p className="muted">{NO_HISTORY_HELP}</p>
+        </div>
       ) : (
         <>
           <MapView
+            key={`${h.points.length}-${view.zoom}`}
             markers={markers}
-            trail={h.points.map((p) => [p.latitude, p.longitude] as [number, number])}
-            center={[last.latitude, last.longitude]}
-            zoom={13}
+            trail={h.points.length > 1 ? h.points.map((p) => [p.latitude, p.longitude] as [number, number]) : undefined}
+            center={view.center}
+            zoom={view.zoom}
           />
-          <p className="muted small">Green: first report. Blue: {h.end ? 'last report' : 'latest report'}. Line: the route in time order.</p>
+          {h.points.length === 1 ? (
+            <p className="muted small">
+              {ONE_POINT_HELP} The marker shows the report at {dateTime(first.recordedAt)}.
+            </p>
+          ) : (
+            <p className="muted small">
+              Green: first report. Blue: {h.end ? 'last report' : 'latest report'}. Line: the route in time order.
+            </p>
+          )}
           <div className="table-wrap">
             <table className="admin-table">
               <caption className="sr-only">GPS reports for {h.reference}, oldest first</caption>
