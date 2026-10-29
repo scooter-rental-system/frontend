@@ -111,11 +111,11 @@ describe('Figma-aligned public pages', () => {
     assert.match(card, /<div className="scooter-card__media">\s*<ScooterThumb[^>]*\/>\s*<span className=\{`badge \$\{availability\.tone\}`\}>\{availability\.label\}<\/span>/);
   });
 
-  it('gives Login and Register the brand panel without unsupported sign-in options', () => {
+  it('gives Login, Register, Forgot password and Reset password the brand panel without unsupported sign-in options', () => {
     const auth = read('pages', 'Auth.tsx');
-    assert.equal((auth.match(/<AuthAside /g) ?? []).length, 2);
+    assert.equal((auth.match(/<AuthAside /g) ?? []).length, 4);
     assert.match(auth, /<aside className="auth-aside" aria-label="About Scooter Rent Kandy">/);
-    assert.doesNotMatch(auth, /google|two-factor|otp|forgot password/i);
+    assert.doesNotMatch(auth, /google|two-factor|\botp\b/i);
     assert.match(auth, /<form className="auth-form" onSubmit=\{submit\} noValidate id="login-form">/);
     assert.match(auth, /<form className="auth-form" onSubmit=\{submit\} noValidate id="register-form">/);
   });

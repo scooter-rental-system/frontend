@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AdminLayout, Layout, RequireAuth } from './components/Layout';
-import { Login, Register } from './pages/Auth';
+import { ForgotPassword, Login, Register, ResetPassword } from './pages/Auth';
 import BookingDetail from './pages/BookingDetail';
 import Checkout from './pages/Checkout';
 import Dashboard from './pages/Dashboard';
@@ -29,6 +29,8 @@ export default function App() {
         <Route path="scooters/:id" element={<ScooterBook />} />
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
+        <Route path="reset-password" element={<ResetPassword />} />
 
         {/* Customer */}
         <Route path="dashboard" element={<RequireAuth customer><Dashboard /></RequireAuth>} />

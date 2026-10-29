@@ -1123,6 +1123,9 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text-muted);
 }
 
+/* "Forgot password?" under the login password field. */
+.auth-forgot { align-self: flex-end; font-size: 0.875rem; font-weight: 600; }
+
 /* ─── Admin shell ───────────────────────────────────────────── */
 /* Figma admin screens: a full-height charcoal sidebar (in both themes), a compact top bar and the page on the
    layered background. Below 900px the sidebar is a drawer behind the "Admin menu" button. */

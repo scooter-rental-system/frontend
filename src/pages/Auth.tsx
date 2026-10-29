@@ -1,9 +1,13 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ApiError } from '../api';
+import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { BrandMark, ErrorAlert, FieldError, ScooterIllustration } from '../components/ui';
 import { useAction } from '../hooks';
+import {
+  confirmPasswordError, emailError, forgotFailure, MISSING_TOKEN, newPasswordError, REQUEST_ACCEPTED, RESET_DONE,
+  resetFailure, resetTokenFrom,
+} from '../passwordReset';
 import { consentError, nicError } from '../registration';
 import type { RegisterFormData, RegisterFormUI } from '../types';
 import { isAdmin } from '../types';
@@ -170,6 +174,9 @@ export function Login() {
               className={errors.password ? 'input-error' : ''}
             />
             <FieldError message={errors.password} />
+            <Link to="/forgot-password" className="auth-forgot" id="link-forgot-password">
+              Forgot password?
+            </Link>
           </div>
 
           {/* Server error */}
@@ -539,6 +546,224 @@ export function Register() {
             Sign in
           </Link>
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Forgot password ──────────────────────────────────────────────────────────
+
+/**
+ * Forgot password page — POST /api/auth/forgot-password (BE-041)
+ *
+ * The answer is always the same generic message, whether or not the email has an account.
+ */
+export function ForgotPassword() {
+  const [email,   setEmail]   = useState('');
+  const [touched, setTouched] = useState(false);
+  const [sent,    setSent]    = useState(false);
+  const action = useAction();
+
+  const error = touched ? emailError(email) : '';
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setTouched(true);
+    if (emailError(email)) return;
+    const ok = await action.run(async () => {
+      try {
+        await api.post('/auth/forgot-password', { email: email.trim() });
+        return true;
+      } catch (err) {
+        throw new Error(err instanceof ApiError ? forgotFailure(err.status, err.message) : forgotFailure(undefined, undefined));
+      }
+    });
+    if (ok) setSent(true);
+  };
+
+  return (
+    <div className="auth-container auth-split">
+      <AuthAside heading="Back on the road in" accent="a few steps." />
+      <div className="auth-card">
+        <div className="auth-header">
+          <div className="auth-logo"><BrandMark /></div>
+          <h1 className="auth-title">Forgot password</h1>
+          <p className="auth-subtitle">Enter the email address associated with your account.</p>
+        </div>
+
+        {sent ? (
+          <div className="auth-form">
+            <div className="alert success" role="status" aria-live="polite" id="forgot-password-sent">
+              {REQUEST_ACCEPTED}
+            </div>
+            <p className="muted small">The link in the email works once and expires after 30 minutes.</p>
+          </div>
+        ) : (
+          <form className="auth-form" onSubmit={submit} noValidate id="forgot-password-form">
+            <div className="form-group">
+              <label htmlFor="forgot-email">
+                Email <span className="required">*</span>
+              </label>
+              <input
+                id="forgot-email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setTouched(true)}
+                aria-invalid={!!error}
+                className={error ? 'input-error' : ''}
+              />
+              <FieldError message={error} />
+            </div>
+
+            <ErrorAlert error={action.error} />
+
+            <button id="btn-forgot-submit" type="submit" className="btn-primary" disabled={action.busy}>
+              {action.busy ? 'Sending…' : 'Send reset link'}
+            </button>
+          </form>
+        )}
+
+        <p className="auth-footer">
+          <Link to="/login" id="link-forgot-back">Back to login</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reset password ───────────────────────────────────────────────────────────
+
+/**
+ * Reset password page — POST /api/auth/reset-password (BE-041), opened from the emailed link /reset-password?token=…
+ *
+ * The token is read once and then removed from the address bar, so it does not stay in the browser history. It is
+ * never shown or logged.
+ */
+export function ResetPassword() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [token] = useState(() => resetTokenFrom(location.search));
+
+  const [password, setPassword] = useState('');
+  const [confirm,  setConfirm]  = useState('');
+  const [touched,  setTouched]  = useState({ password: false, confirm: false });
+  const [done,     setDone]     = useState(false);
+  const [linkProblem, setLinkProblem] = useState<string | null>(token ? null : MISSING_TOKEN);
+  const action = useAction();
+
+  useEffect(() => {
+    if (location.search) navigate('/reset-password', { replace: true });
+  }, [location.search, navigate]);
+
+  const errors = {
+    password: touched.password ? newPasswordError(password) : '',
+    confirm:  touched.confirm  ? confirmPasswordError(password, confirm) : '',
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setTouched({ password: true, confirm: true });
+    if (!token || newPasswordError(password) || confirmPasswordError(password, confirm)) return;
+    const ok = await action.run(async () => {
+      try {
+        await api.post('/auth/reset-password', { token, newPassword: password });
+        return true;
+      } catch (err) {
+        const failure = err instanceof ApiError ? resetFailure(err.status, err.message) : resetFailure(undefined, undefined);
+        if (failure.kind === 'link') {
+          setLinkProblem(failure.message);
+          return false;
+        }
+        throw new Error(failure.message);
+      }
+    });
+    if (ok) {
+      setDone(true);
+      setPassword('');
+      setConfirm('');
+    }
+  };
+
+  return (
+    <div className="auth-container auth-split">
+      <AuthAside heading="Back on the road in" accent="a few steps." />
+      <div className="auth-card">
+        <div className="auth-header">
+          <div className="auth-logo"><BrandMark /></div>
+          <h1 className="auth-title">Reset password</h1>
+          {!done && !linkProblem && <p className="auth-subtitle">Choose a new password for your account.</p>}
+        </div>
+
+        {done ? (
+          <div className="auth-form">
+            <div className="alert success" role="status" aria-live="polite" id="reset-password-done">
+              {RESET_DONE}
+            </div>
+            <Link to="/login" className="btn btn-primary" id="link-reset-login">Back to login</Link>
+          </div>
+        ) : linkProblem ? (
+          <div className="auth-form">
+            <div className="alert" role="alert" id="reset-password-link-problem">{linkProblem}</div>
+            <Link to="/forgot-password" className="btn btn-primary" id="link-reset-request-new">
+              Request a new link
+            </Link>
+          </div>
+        ) : (
+          <form className="auth-form" onSubmit={submit} noValidate id="reset-password-form">
+            <div className="form-group">
+              <label htmlFor="reset-password">
+                New password <span className="required">*</span>
+              </label>
+              <input
+                id="reset-password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Min 8 characters"
+                maxLength={72}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                aria-invalid={!!errors.password}
+                className={errors.password ? 'input-error' : ''}
+              />
+              <FieldError message={errors.password} />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="reset-confirm">
+                Confirm new password <span className="required">*</span>
+              </label>
+              <input
+                id="reset-confirm"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Repeat your new password"
+                maxLength={72}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
+                aria-invalid={!!errors.confirm}
+                className={errors.confirm ? 'input-error' : ''}
+              />
+              <FieldError message={errors.confirm} />
+            </div>
+
+            <ErrorAlert error={action.error} />
+
+            <button id="btn-reset-submit" type="submit" className="btn-primary" disabled={action.busy}>
+              {action.busy ? 'Resetting…' : 'Reset password'}
+            </button>
+          </form>
+        )}
+
+        {!done && (
+          <p className="auth-footer">
+            <Link to="/login" id="link-reset-back">Back to login</Link>
+          </p>
+        )}
       </div>
     </div>
   );
