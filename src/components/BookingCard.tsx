@@ -4,6 +4,7 @@ import { needsAction } from '../bookings';
 import { dateTime, humanize, money } from '../format';
 import { cardAction } from '../rental';
 import { bookingActionPath } from '../routes';
+import { isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
 import type { Booking } from '../types';
 import { DetailRow, ScooterIllustration, StageBadge } from './ui';
 
@@ -96,9 +97,11 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
               <>
                 {humanize(b.payment.status)} · {money(b.payment.amount)}
                 {b.payment.method === 'CASH' && ' · cash'}
+                {isTransferMethod(b.payment.method) && ` · ${PAYMENT_METHOD_LABEL[b.payment.method]}`}
                 {b.payment.cardLast4 && ` · card ending ${b.payment.cardLast4}`}
                 {b.payment.balanceDue != null && b.payment.balanceDue > 0 && ` · balance due ${money(b.payment.balanceDue)}`}
-                {b.payment.refundDue != null && ` · cash refund due ${money(b.payment.refundDue)}`}
+                {b.payment.refundDue != null &&
+                  ` · ${b.payment.method === 'CASH' ? 'cash ' : ''}refund due ${money(b.payment.refundDue)}`}
                 {b.payment.failureReason && <div className="field-error">{b.payment.failureReason}</div>}
               </>
             ) : (

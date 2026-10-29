@@ -7,6 +7,7 @@ import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
 import { DemoControls } from '../components/DemoMode';
 import { RepairPanel } from '../components/RepairPanel';
+import { TransferPanel } from '../components/TransferPanel';
 import { useConfirm } from '../useConfirm';
 import { StripePayment } from '../components/StripePayment';
 import InvoiceView from '../components/InvoiceView';
@@ -23,6 +24,17 @@ import {
   isCashBooking,
 } from '../cash';
 import { paymentLabel } from '../checkout';
+import {
+  isTransferBooking,
+  isTransferMethod,
+  PAYMENT_METHOD_LABEL,
+  RECEIPT_STATUS_LABEL,
+  RECEIPT_STATUS_TONE,
+  TRANSFER_CANCEL_NOTE,
+  TRANSFER_END_NOTE,
+  TRANSFER_LABEL,
+  transferPaymentLabel,
+} from '../transfers';
 import { DEMO_RENTAL_NOTE, demoActions, demoBlocker, isDemoRental } from '../demo';
 import { dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
@@ -129,6 +141,9 @@ export default function BookingDetail() {
   // Cash at the rental counter: nothing moves through the card provider, and only an admin records the cash.
   const cash = isCashBooking(b);
   const cashPending = cash && b.status === 'PENDING' && b.payment?.status === 'PENDING';
+  // QR Pay or bank transfer: the customer transfers outside the app and an admin approves the receipt.
+  const transfer = isTransferBooking(b);
+  const transferPending = transfer && b.status === 'PENDING' && b.payment?.status === 'PENDING';
 
   const refresh = () => {
     booking.reload();
@@ -140,7 +155,9 @@ export default function BookingDetail() {
       b.status === 'ACTIVE'
         ? cash
           ? CASH_CANCEL_NOTE
-          : 'Cancel this booking? You will receive a full refund.'
+          : transfer
+            ? TRANSFER_CANCEL_NOTE
+            : 'Cancel this booking? You will receive a full refund.'
         : 'Cancel this reservation?';
     const ok = await confirm({
       title: 'Cancel booking?',
@@ -157,7 +174,11 @@ export default function BookingDetail() {
   const doEnd = async () => {
     const ok = await confirm({
       title: 'End the rental now?',
-      message: cash ? CASH_END_NOTE : 'The final total is calculated and the balance charged to your card.',
+      message: cash
+        ? CASH_END_NOTE
+        : transfer
+          ? TRANSFER_END_NOTE
+          : 'The final total is calculated and the balance charged to your card.',
       confirmLabel: 'End rental',
       cancelLabel: 'Keep riding',
     });
@@ -202,7 +223,11 @@ export default function BookingDetail() {
         <div className="booking-header__actions">
           {b.status === 'PENDING' && isOwner && (
             <Link className="btn primary" to={checkoutPath(b.id)}>
-              {b.stage === 'PAYMENT_FAILED' ? 'Try payment again' : cashPending ? 'Payment options' : 'Sign & pay'}
+              {b.stage === 'PAYMENT_FAILED'
+                ? 'Try payment again'
+                : cashPending || transferPending
+                  ? 'Payment options'
+                  : 'Sign & pay'}
             </Link>
           )}
           {canEnd && (
@@ -237,6 +262,14 @@ export default function BookingDetail() {
           onChanged={refresh}
         />
       )}
+      {(cash || transfer) && (
+        <TransferPanel
+          booking={b}
+          invoice={invoices.data?.find((i) => i.kind === 'FINAL')}
+          admin={inAdmin && isAdmin(user?.role)}
+          onChanged={refresh}
+        />
+      )}
 
       <ErrorAlert error={cancel.error} />
       {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
@@ -246,8 +279,10 @@ export default function BookingDetail() {
       )}
       {b.stage === 'UPCOMING' && (
         <div className="alert info">
-          Paid{cash && ' in cash'}. Your rental starts {dateTime(b.startTime)}. You can cancel for a full refund
-          {cash && ', handed back in cash at the counter,'} until then.
+          Paid{cash && ' in cash'}
+          {transfer && ' by transfer'}. Your rental starts {dateTime(b.startTime)}. You can cancel for a full refund
+          {cash && ', handed back in cash at the counter,'}
+          {transfer && ', sent back to you by our team,'} until then.
         </div>
       )}
 
@@ -306,13 +341,25 @@ export default function BookingDetail() {
                 {b.gear.map((g) => `${g.name} ×${g.quantity} (${money(g.dailyRate)}/day)`).join(', ')}
               </DetailRow>
             )}
-            <DetailRow label={demoRental ? 'Initial charge' : cash ? 'Paid at booking (cash)' : 'Charged at booking'}>
+            <DetailRow
+              label={
+                demoRental
+                  ? 'Initial charge'
+                  : cash
+                    ? 'Paid at booking (cash)'
+                    : transfer
+                      ? 'Paid at booking (transfer)'
+                      : 'Charged at booking'
+              }
+            >
               {money(b.initialCharge)}{' '}
               {demoRental
                 ? '(not charged: no payment was taken for this viva demo rental)'
                 : cash
                   ? '(the one-hour minimum + 1 day of gear; the rest is paid in cash when the rental ends)'
-                  : '(the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)'}
+                  : transfer
+                    ? '(the one-hour minimum + 1 day of gear; the rest is paid by transfer or at the counter when the rental ends)'
+                    : '(the one-hour minimum + 1 day of gear; the rest is charged when the rental ends)'}
             </DetailRow>
             {(b.totalCost ?? b.pendingTotalCost) != null && (
               <DetailRow label="Final total">
@@ -362,6 +409,8 @@ function BalanceDue({
   const [payOnline, setPayOnline] = useState(false);
   // A cash balance is paid at the counter, never online: the CashPanel shows it.
   if (isCashBooking(b)) return null;
+  // A transfer balance is paid by QR or bank transfer with a receipt: the TransferPanel shows it.
+  if (isTransferBooking(b)) return null;
   return (
     <section className="card stack action-panel" aria-labelledby="balance-title">
       <div className="checkout-task__head">
@@ -550,7 +599,11 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
         <div className="row between">
           <div>
             <div>
-              {p.method === 'CASH' ? cashPaymentLabel(p.status) : paymentLabel(p.status)}
+              {isTransferMethod(p.method) ? (
+                transferPaymentLabel(p)
+              ) : (
+                <>{p.method === 'CASH' ? cashPaymentLabel(p.status) : paymentLabel(p.status)}</>
+              )}
               {p.method === 'CASH' && <span className="muted small"> · Cash at the rental counter</span>}
               {p.cardLast4 && <span className="muted small"> · card ****{p.cardLast4}</span>}
             </div>
@@ -559,12 +612,37 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
               {p.failureReason && ` · ${p.failureReason}`}
             </div>
             {p.balanceDue != null && <div className="small">Balance due: {money(p.balanceDue)}</div>}
-            {p.refundDue != null && <div className="small">Cash refund due: {money(p.refundDue)}</div>}
+            {p.refundDue != null && (
+              <div className="small">
+                {p.method === 'CASH' ? 'Cash refund due' : 'Refund due (not yet refunded)'}: {money(p.refundDue)}
+              </div>
+            )}
+            <div className="muted small">Method: {PAYMENT_METHOD_LABEL[p.method]}</div>
           </div>
           <div className="right">
             <div className="num">{money(p.amount)}</div>
             <StatusBadge status={p.status} />
           </div>
+        </div>
+      )}
+      {p && p.receipts.length > 0 && (
+        <div className="stack">
+          <h3 className="small">Transfer receipts</h3>
+          <ul className="receipt-history small">
+            {p.receipts.map((r) => (
+              <li key={r.id}>
+                <span className={`badge ${RECEIPT_STATUS_TONE[r.status]}`}>{RECEIPT_STATUS_LABEL[r.status]}</span>{' '}
+                {TRANSFER_LABEL[r.method]} · {r.kind === 'INITIAL' ? 'initial payment' : 'final balance'} ·{' '}
+                {money(r.amount)}
+                <div className="muted">
+                  Submitted {dateTime(r.submittedAt)}
+                  {r.status === 'APPROVED' && ` · approved ${dateTime(r.reviewedAt)}`}
+                  {r.status === 'REJECTED' && ` · rejected ${dateTime(r.reviewedAt)}: ${r.rejectionReason}`}
+                  {r.transferReference && ` · reference ${r.transferReference}`}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

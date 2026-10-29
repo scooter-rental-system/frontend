@@ -10,11 +10,14 @@ import type { Booking, Invoice, PaymentStatus } from './types';
 const lkr = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 2 });
 const money = (n: number) => lkr.format(n);
 
-export type CheckoutMethod = 'CARD' | 'CASH';
+/** QR Pay and Bank Transfer are offered only when an administrator enabled them (see transfers.ts). */
+export type CheckoutMethod = 'CARD' | 'CASH' | 'QR_TRANSFER' | 'BANK_TRANSFER';
 
 export const METHOD_LABEL: Record<CheckoutMethod, string> = {
   CARD: 'Card / Online Payment',
   CASH: 'Cash',
+  QR_TRANSFER: 'QR Pay',
+  BANK_TRANSFER: 'Bank Transfer',
 };
 
 export const CASH_CHECKOUT_NOTE =
@@ -78,7 +81,9 @@ export function cashAction(b: Booking, admin: boolean): CashAction | null {
       message: `Confirm only after you have received ${money(p.amount)} in cash from ${b.customer.fullName}. The booking becomes active and the scooter is marked rented.`,
     };
   }
-  if (b.status === 'ACTIVE' && b.endedAt && p.balanceDue != null) {
+  // A transfer receipt for the balance waits for verification: approve or reject it first.
+  const receiptWaiting = p.receipts?.some((r) => r.status === 'PENDING_VERIFICATION') ?? false;
+  if (b.status === 'ACTIVE' && b.endedAt && p.balanceDue != null && !receiptWaiting) {
     return {
       step: 'balance',
       amount: p.balanceDue,

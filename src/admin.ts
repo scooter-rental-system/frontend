@@ -59,7 +59,13 @@ export const ADMIN_NAV: AdminGroup[] = [
     ],
   },
   { title: 'Customers', links: [{ to: '/admin/customers', label: 'Customers', icon: 'customers' }] },
-  { title: 'Finance', links: [{ to: '/admin/billing', label: 'Payments & billing', icon: 'billing' }] },
+  {
+    title: 'Finance',
+    links: [
+      { to: '/admin/billing', label: 'Payments & billing', icon: 'billing' },
+      { to: '/admin/payment-settings', label: 'Payment settings', icon: 'billing' },
+    ],
+  },
   {
     title: 'Communication',
     links: [{ to: '/admin/notifications', label: 'Notifications', icon: 'notifications' }],

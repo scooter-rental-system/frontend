@@ -15,6 +15,7 @@ import { Fleet, Gear } from './pages/admin/Fleet';
 import Gps from './pages/admin/Gps';
 import GpsHistory from './pages/admin/GpsHistory';
 import Maintenance from './pages/admin/Maintenance';
+import PaymentSettings from './pages/admin/PaymentSettings';
 import AdminProfile from './pages/admin/Profile';
 import { Customers, NotificationsAdmin } from './pages/admin/People';
 import Repairs from './pages/admin/Repairs';
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="gear" element={<Gear />} />
         <Route path="billing" element={<Billing />} />
+        <Route path="payment-settings" element={<PaymentSettings />} />
         <Route path="customers" element={<Customers />} />
         <Route path="notifications" element={<NotificationsAdmin />} />
         <Route path="reports" element={<Reports />} />

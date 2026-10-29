@@ -1,4 +1,5 @@
 import { date, money } from '../format';
+import { isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
 import type { Invoice } from '../types';
 import { StatusBadge } from './ui';
 
@@ -18,6 +19,8 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   const charges = credits.length > 0 ? invoice.lines.filter((l) => l.amount >= 0) : invoice.lines;
   // Paid in cash at the counter: the cash received, any cash handed back, and what is still due either way.
   const cash = invoice.kind === 'FINAL' && invoice.paymentMethod === 'CASH';
+  // Paid by QR or bank transfer: what an administrator approved as received, refunds sent, and any refund still due.
+  const transfer = invoice.kind === 'FINAL' && isTransferMethod(invoice.paymentMethod);
   return (
     <article className="card stack invoice" aria-labelledby={`invoice-${invoice.id}`}>
       <div className="row between">
@@ -76,6 +79,30 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
               <strong>{money(Math.abs(invoice.total))}</strong>
             </td>
           </tr>
+          {transfer && (
+            <>
+              <tr className="invoice__cash">
+                <td colSpan={3}>Already received</td>
+                <td className="num">{money(invoice.amountReceived)}</td>
+              </tr>
+              {(invoice.amountRefunded ?? 0) > 0 && (
+                <tr className="invoice__cash">
+                  <td colSpan={3}>Refund completed</td>
+                  <td className="num">−{money(invoice.amountRefunded)}</td>
+                </tr>
+              )}
+              {invoice.refundDue != null && (
+                <tr className="invoice__cash">
+                  <td colSpan={3}>
+                    <strong>Refund due (not yet refunded)</strong>
+                  </td>
+                  <td className="num">
+                    <strong>{money(invoice.refundDue)}</strong>
+                  </td>
+                </tr>
+              )}
+            </>
+          )}
           {!cash && invoice.balanceDue != null && (
             <tr>
               <td colSpan={3}>Balance still due</td>
@@ -120,6 +147,11 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
       </table>
       </div>
       {cash && <p className="muted small">Payment method: Cash at the rental counter.</p>}
+      {transfer && invoice.paymentMethod && (
+        <p className="muted small">
+          Payment method: {PAYMENT_METHOD_LABEL[invoice.paymentMethod]}, verified by an administrator.
+        </p>
+      )}
     </article>
   );
 }

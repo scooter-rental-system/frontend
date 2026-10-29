@@ -107,7 +107,7 @@ describe('admin cash confirmation', () => {
     assert.equal(cashPaymentLabel('REFUNDED'), 'Cash refunded');
     assert.equal(isCashBooking(booking()), true);
     assert.match(detail, /\{p\.method === 'CASH' && <span className="muted small"> · Cash at the rental counter<\/span>\}/);
-    assert.match(billing, /\{p\.method === 'CASH' \? 'Cash' : p\.method\.toLowerCase\(\)\}/);
+    assert.match(billing, /\{PAYMENT_METHOD_LABEL\[p\.method\]\}/);
   });
 });
 
@@ -147,7 +147,7 @@ describe('final cash settlement', () => {
 
   it('never shows the card balance panel or an online payment for cash', () => {
     assert.match(detail, /\/\/ A cash balance is paid at the counter, never online: the CashPanel shows it\.\s*if \(isCashBooking\(b\)\) return null;/);
-    assert.match(detail, /message: cash \? CASH_END_NOTE : 'The final total is calculated and the balance charged to your card\.'/);
+    assert.match(detail, /message: cash\s*\? CASH_END_NOTE\s*: transfer\s*\? TRANSFER_END_NOTE\s*: 'The final total is calculated and the balance charged to your card\.'/);
   });
 });
 

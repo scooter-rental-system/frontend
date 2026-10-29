@@ -2855,3 +2855,41 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
 }
 .payment-method.is-selected { border-color: var(--brand); }
 .payment-methods:disabled .payment-method { cursor: not-allowed; opacity: 0.6; }
+
+/* QR payments and bank transfers (BE-045): the payment details, the receipt upload and the admin receipt review. */
+.transfer-qr { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+.transfer-qr__image {
+  width: 200px;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #fff;
+  display: block;
+}
+.transfer-details { display: grid; gap: var(--space-2); margin: 0; }
+.transfer-details > div { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.transfer-details dt { color: var(--text-muted); min-width: 9.5rem; }
+.transfer-details dd { margin: 0; overflow-wrap: anywhere; }
+.copy-button { padding: 2px 10px; }
+.receipt-review__body { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+.receipt-review__body dl { flex: 1 1 260px; margin: 0; }
+.receipt-review__image {
+  width: 160px;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: block;
+}
+.receipt-history { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.auth-image__loading {
+  display: block;
+  width: 160px;
+  height: 160px;
+  max-width: 100%;
+  border-radius: var(--radius);
+  background: var(--surface-2, var(--border));
+}
+.auth-image__missing { color: var(--text-muted); }

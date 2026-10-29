@@ -110,7 +110,67 @@ export type BookingStage =
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
 /** CARD goes through the payment provider; CASH is received at the rental counter and recorded by an admin. */
-export type PaymentMethod = 'CARD' | 'ONLINE' | 'CASH';
+/** CARD/ONLINE go through the card provider; CASH, QR_TRANSFER and BANK_TRANSFER are recorded or approved by an admin. */
+export type PaymentMethod = 'CARD' | 'ONLINE' | 'CASH' | 'QR_TRANSFER' | 'BANK_TRANSFER';
+
+export type ReceiptStatus = 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+
+/** A QR payment or bank transfer receipt the customer uploaded, as the customer sees it (no reviewer details). */
+export interface ReceiptSummary {
+  id: string;
+  kind: 'INITIAL' | 'BALANCE';
+  method: 'QR_TRANSFER' | 'BANK_TRANSFER';
+  amount: number;
+  transferReference: string | null;
+  status: ReceiptStatus;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+
+/** GET /api/admin/payment-receipts: a receipt with its booking and customer, for verification. */
+export interface AdminReceipt extends ReceiptSummary {
+  bookingId: string;
+  bookingReference: string;
+  bookingStatus: BookingStatus;
+  customerName: string;
+  customerEmail: string;
+  /** What the booking expects for this step now; null when nothing is due any more. */
+  amountDue: number | null;
+  reviewedBy: string | null;
+}
+
+/** GET /api/payments/options: the transfer methods offered now; null when disabled. */
+export interface PaymentOptions {
+  qr: { displayName: string; instructions: string | null } | null;
+  bank: {
+    bankName: string;
+    accountHolder: string;
+    accountNumber: string;
+    branch: string;
+    branchCode: string | null;
+    instructions: string | null;
+  } | null;
+  paymentHoldMinutes: number;
+  verificationHoldMinutes: number;
+}
+
+/** GET/PUT /api/admin/payment-settings: public payment-receiving details only. */
+export interface PaymentSettings {
+  qrEnabled: boolean;
+  qrDisplayName: string | null;
+  qrInstructions: string | null;
+  qrImageUploaded: boolean;
+  bankEnabled: boolean;
+  bankName: string | null;
+  bankAccountHolder: string | null;
+  bankAccountNumber: string | null;
+  bankBranch: string | null;
+  bankBranchCode: string | null;
+  bankInstructions: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
 
 export interface Booking {
   id: string;
@@ -150,8 +210,10 @@ export interface Booking {
     failureReason: string | null;
     paidAt: string | null;
     method: PaymentMethod;
-    /** Cash only: cash still to hand back to the customer at the counter. */
+    /** Cash, QR or bank transfer: money still owed back to the customer. */
     refundDue: number | null;
+    /** QR and bank transfer receipts, oldest first (empty for card and cash). */
+    receipts: ReceiptSummary[];
   } | null;
   pickupLocation: string;
   /** SDS 2.2: GPS position where the rental ended; null until it completes. */
@@ -179,7 +241,7 @@ export interface Payment {
   bookingReference: string | null;
   customerName: string | null;
   amount: number;
-  method: 'CARD' | 'ONLINE' | 'CASH';
+  method: 'CARD' | 'ONLINE' | 'CASH' | 'QR_TRANSFER' | 'BANK_TRANSFER';
   status: PaymentStatus;
   /** Null for cash: no payment provider is involved. */
   provider: string | null;
@@ -189,7 +251,7 @@ export interface Payment {
   failureReason: string | null;
   paidAt: string | null;
   createdAt: string;
-  /** Cash only: cash still to hand back to the customer. */
+  /** Cash, QR or bank transfer: money still owed back to the customer. */
   refundDue: number | null;
 }
 
@@ -237,8 +299,11 @@ export interface Invoice {
   /** Final invoice paid in cash: cash recorded as received, and as handed back. */
   cashReceived: number | null;
   cashRefunded: number | null;
-  /** Final invoice paid in cash: cash still to hand back. */
+  /** Final invoice paid in cash or by QR or bank transfer: money still owed back. */
   refundDue: number | null;
+  /** Final invoice paid in cash or by QR or bank transfer: everything received, and refunded so far. */
+  amountReceived: number | null;
+  amountRefunded: number | null;
 }
 
 export interface Notification {
