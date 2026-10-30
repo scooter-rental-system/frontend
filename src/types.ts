@@ -109,8 +109,10 @@ export type BookingStage =
 
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
-/** CARD goes through the payment provider; CASH is received at the rental counter and recorded by an admin. */
-/** CARD/ONLINE go through the card provider; CASH, QR_TRANSFER and BANK_TRANSFER are recorded or approved by an admin. */
+/**
+ * CARD/ONLINE go through the card provider; QR_TRANSFER and BANK_TRANSFER are approved by an admin from the receipt;
+ * CASH is received at the rental counter and recorded by an admin (never chosen by the customer).
+ */
 export type PaymentMethod = 'CARD' | 'ONLINE' | 'CASH' | 'QR_TRANSFER' | 'BANK_TRANSFER';
 
 export type ReceiptStatus = 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -253,6 +255,22 @@ export interface Payment {
   createdAt: string;
   /** Cash, QR or bank transfer: money still owed back to the customer. */
   refundDue: number | null;
+  /** Every way money was received, in order, e.g. ['QR_TRANSFER', 'CASH']; `method` stays the first. */
+  paymentMethods: PaymentMethod[];
+  /** Every amount recorded, oldest first; only for a single booking (GET /bookings/{id}/payment), null in lists. */
+  transactions: PaymentTransaction[] | null;
+}
+
+/** One amount on a payment: received (INITIAL, BALANCE) or refunded (REFUND), and how it moved. */
+export interface PaymentTransaction {
+  id: string;
+  kind: 'INITIAL' | 'BALANCE' | 'REFUND';
+  amount: number;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  createdAt: string;
+  /** The admin who recorded or approved a manual amount; null for provider transactions. */
+  recordedBy: string | null;
+  method: PaymentMethod | null;
 }
 
 /** GET /api/payments/config. The publishable key is public by design; secret keys never reach the browser. */
@@ -304,6 +322,8 @@ export interface Invoice {
   /** Final invoice paid in cash or by QR or bank transfer: everything received, and refunded so far. */
   amountReceived: number | null;
   amountRefunded: number | null;
+  /** Every way money was received, in order, e.g. ['QR_TRANSFER', 'CASH']; empty when there is no payment. */
+  paymentMethods: PaymentMethod[];
 }
 
 export interface Notification {

@@ -127,10 +127,10 @@ describe('admin payment settings', () => {
 });
 
 describe('checkout', () => {
-  it('offers QR Pay and Bank Transfer next to Card and Cash, only while enabled', () => {
+  it('offers QR Pay and Bank Transfer next to Card, only while enabled', () => {
     assert.equal(METHOD_LABEL.QR_TRANSFER, 'QR Pay');
     assert.equal(METHOD_LABEL.BANK_TRANSFER, 'Bank Transfer');
-    assert.match(checkout, /\(\['CARD', 'CASH'\] as const\)\.map\(\(m\) =>/);
+    assert.match(checkout, /\(\['CARD'\] as const\)\.map\(\(m\) =>/);
     assert.match(checkout, /const transferChoices = offeredTransfers\(options\.data\);/);
     assert.match(checkout, /\{transferChoices\.map\(\(m\) => \(/);
     assert.deepEqual(offeredTransfers(options), ['QR_TRANSFER']);
@@ -255,7 +255,7 @@ describe('admin verification', () => {
     assert.equal(matchesMethodFilter({ method: 'QR_TRANSFER', refundDue: 100 }, 'REFUND_DUE'), true);
     assert.equal(matchesMethodFilter({ method: 'CASH', refundDue: null }, 'BANK_TRANSFER'), false);
     assert.match(billing, /aria-pressed=\{methodFilter === f\.value\}/);
-    assert.match(billing, /\{PAYMENT_METHOD_LABEL\[p\.method\]\}/);
+    assert.match(billing, /: PAYMENT_METHOD_LABEL\[p\.method\]\}/);
     assert.doesNotMatch(billing, /stripePaymentId|secret/i);
   });
 });
@@ -275,12 +275,15 @@ describe('final balance and refunds', () => {
     assert.doesNotMatch(panel, /claimedAmount/);
   });
 
-  it('lets a cash booking pay its balance by transfer, and the counter wait while a receipt is checked', () => {
-    const cashEnded = ended({ method: 'CASH', balanceDue: 7750 });
-    assert.equal(transferStep(cashEnded).kind, 'balance');
-    assert.equal(cashAction(cashEnded, true).step, 'balance');
-    const withReceipt = ended({ method: 'CASH', balanceDue: 7750, receipts: [receipt({ kind: 'BALANCE', amount: 7750 })] });
+  it('lets the counter take the balance in cash, but not while a receipt is checked', () => {
+    const qrEnded = ended({ method: 'QR_TRANSFER', balanceDue: 7750 });
+    assert.equal(transferStep(qrEnded).kind, 'balance');
+    assert.equal(cashAction(qrEnded, true).step, 'balance');
+    const withReceipt = ended({ method: 'QR_TRANSFER', balanceDue: 7750, receipts: [receipt({ kind: 'BALANCE', amount: 7750 })] });
+    assert.equal(transferStep(withReceipt).kind, 'waiting');
     assert.equal(cashAction(withReceipt, true), null, 'approve or reject the receipt first');
+    const cashEnded = ended({ method: 'CASH', balanceDue: 7750 });
+    assert.equal(transferStep(cashEnded).kind, 'balance', 'a booking paid in cash earlier may still transfer its balance');
     assert.equal(isManualMethod('CASH'), true);
     assert.equal(isManualMethod('CARD'), false);
   });
@@ -326,8 +329,8 @@ describe('unchanged', () => {
     assert.match(detail, /\/\/ A transfer balance is paid by QR or bank transfer with a receipt: the TransferPanel shows it\.\s*if \(isTransferBooking\(b\)\) return null;/);
   });
 
-  it('keeps the cash flow and the demo controls', () => {
-    assert.match(checkout, /api\.post<Booking>\(chooseCashPath\(b\.id\)\)/);
+  it('keeps the earlier cash bookings and the demo controls', () => {
+    assert.doesNotMatch(checkout, /chooseCashPath|'CASH'/);
     assert.match(detail, /\{cash && \(\s*<CashPanel/);
     assert.match(detail, /<DemoControls\s+booking=\{b\}/);
     assert.match(read('demo.ts'), /export function demoActions/);

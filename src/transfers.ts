@@ -12,6 +12,7 @@ import type {
   Payment,
   PaymentMethod,
   PaymentOptions,
+  PaymentTransaction,
   PaymentSettings,
   ReceiptStatus,
   ReceiptSummary,
@@ -53,6 +54,44 @@ export const isTransferMethod = (m: PaymentMethod | null | undefined): m is Tran
 export const isManualMethod = (m: PaymentMethod | null | undefined) => m === 'CASH' || isTransferMethod(m);
 
 export const isTransferBooking = (b: Pick<Booking, 'payment'>) => isTransferMethod(b.payment?.method);
+
+/** Every way a booking was paid, e.g. "QR Pay + Cash" when the final balance was paid in cash after a QR payment. */
+export const paymentMethodsLabel = (methods: readonly PaymentMethod[]) =>
+  methods.map((m) => PAYMENT_METHOD_LABEL[m]).join(' + ');
+
+/** A recorded amount, as the payment history shows it: each keeps its own method. */
+export interface HistoryRow {
+  id: string;
+  method: string;
+  what: string;
+  amount: number;
+  /** "Approved" (QR Pay, bank transfer), "Received" (cash), "Paid" (card), "Refunded". */
+  status: string;
+}
+
+/**
+ * The payment history of a booking: every amount received or refunded, oldest first, and the total received less
+ * refunds. Card attempts that did not go through are left out.
+ */
+export function paymentHistory(transactions: readonly PaymentTransaction[], fallback: PaymentMethod) {
+  const rows: HistoryRow[] = transactions
+    .filter((t) => t.status === 'SUCCESS')
+    .map((t) => {
+      const method = t.method ?? fallback;
+      return {
+        id: t.id,
+        method: PAYMENT_METHOD_LABEL[method],
+        what: t.kind === 'INITIAL' ? 'Initial payment' : t.kind === 'BALANCE' ? 'Final balance' : 'Refund',
+        amount: t.amount,
+        status:
+          t.kind === 'REFUND' ? 'Refunded' : method === 'CASH' ? 'Received' : isTransferMethod(method) ? 'Approved' : 'Paid',
+      };
+    });
+  const received = transactions
+    .filter((t) => t.status === 'SUCCESS')
+    .reduce((sum, t) => sum + (t.kind === 'REFUND' ? -t.amount : t.amount), 0);
+  return { rows, received: Math.round(received * 100) / 100 };
+}
 
 /** The transfer methods an administrator enabled, in checkout order; none when the options are not loaded. */
 export function offeredTransfers(options: PaymentOptions | null | undefined): TransferMethod[] {
@@ -253,16 +292,21 @@ export const METHOD_FILTERS: { value: MethodFilter; label: string }[] = [
   { value: 'REFUND_DUE', label: 'Refund due' },
 ];
 
-export function matchesMethodFilter(p: Pick<Payment, 'method' | 'refundDue'>, filter: MethodFilter): boolean {
+/** A payment matches a method when any amount was received that way (a QR booking settled in cash matches both). */
+export function matchesMethodFilter(
+  p: Pick<Payment, 'method' | 'refundDue'> & { paymentMethods?: PaymentMethod[] },
+  filter: MethodFilter,
+): boolean {
+  const methods = p.paymentMethods?.length ? p.paymentMethods : [p.method];
   switch (filter) {
     case 'ALL':
       return true;
     case 'CARD':
-      return p.method === 'CARD' || p.method === 'ONLINE';
+      return methods.includes('CARD') || methods.includes('ONLINE');
     case 'REFUND_DUE':
       return p.refundDue != null;
     default:
-      return p.method === filter;
+      return methods.includes(filter);
   }
 }
 

@@ -1,5 +1,5 @@
 import { date, money } from '../format';
-import { invoiceStatus, isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
+import { invoiceStatus, isTransferMethod, paymentMethodsLabel } from '../transfers';
 import type { Invoice } from '../types';
 import { StatusBadge } from './ui';
 
@@ -21,6 +21,8 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
   const cash = invoice.kind === 'FINAL' && invoice.paymentMethod === 'CASH';
   // Paid by QR or bank transfer: what an administrator approved as received, refunds sent, and any refund still due.
   const transfer = invoice.kind === 'FINAL' && isTransferMethod(invoice.paymentMethod);
+  // Every way the booking was paid, e.g. "QR Pay + Cash" when the final balance was paid in cash at the counter.
+  const methods = invoice.paymentMethods ?? [];
   return (
     <article className="card stack invoice" aria-labelledby={`invoice-${invoice.id}`}>
       <div className="row between">
@@ -146,10 +148,15 @@ export default function InvoiceView({ invoice }: { invoice: Invoice }) {
         </tbody>
       </table>
       </div>
-      {cash && <p className="muted small">Payment method: Cash at the rental counter.</p>}
-      {transfer && invoice.paymentMethod && (
+      {cash && methods.length <= 1 && <p className="muted small">Payment method: Cash at the rental counter.</p>}
+      {(transfer || cash) && methods.length > 1 && (
         <p className="muted small">
-          Payment method: {PAYMENT_METHOD_LABEL[invoice.paymentMethod]}, verified by an administrator.
+          Payment methods: {paymentMethodsLabel(methods)}, each recorded or verified by an administrator.
+        </p>
+      )}
+      {transfer && methods.length <= 1 && invoice.paymentMethod && (
+        <p className="muted small">
+          Payment method: {paymentMethodsLabel([invoice.paymentMethod])}, verified by an administrator.
         </p>
       )}
     </article>

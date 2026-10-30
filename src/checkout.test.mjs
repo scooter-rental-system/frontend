@@ -126,7 +126,7 @@ describe('payment status labels (PaymentCard)', () => {
 
   it('is used by the booking page instead of the old two-way label', () => {
     const detail = read('pages', 'BookingDetail.tsx');
-    // A cash payment has its own words (BE-044: "Cash received", never "Charged").
+    // A cash payment (recorded at the counter before cash left the checkout) has its own words: "Cash received".
     assert.match(detail, /\{p\.method === 'CASH' \? cashPaymentLabel\(p\.status\) : paymentLabel\(p\.status\)\}/);
     assert.doesNotMatch(detail, /'Refunded' : 'Charged'/);
   });

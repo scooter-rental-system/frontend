@@ -7,7 +7,7 @@ import { BookingStepper } from '../components/BookingStepper';
 import { StripePayment } from '../components/StripePayment';
 import { ReceiptUpload, TransferInstructions } from '../components/TransferPay';
 import { ErrorAlert, Loading } from '../components/ui';
-import { CASH_CHECKOUT_NOTE, CASH_HOLD_NOTE, chooseCashPath, isCashBooking, METHOD_LABEL, type CheckoutMethod } from '../cash';
+import { METHOD_LABEL, type CheckoutMethod } from '../cash';
 import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
@@ -38,10 +38,9 @@ export default function Checkout() {
   const [signedName, setSignedName] = useState('');
   const [agree, setAgree] = useState(false);
   const sign = useAction();
-  // Card goes through the payment provider; cash is paid at the counter and recorded by an admin. Cash does not
-  // depend on the card provider, so it stays selectable when card payments are unavailable.
+  // Card goes through the payment provider; QR Pay and Bank Transfer are approved by an admin from the receipt.
+  // Cash is not offered: only an admin records cash, when the customer pays at the rental counter.
   const [chosen, setChosen] = useState<CheckoutMethod | null>(null);
-  const payCash = useAction();
   const chooseTransfer = useAction();
 
   if (booking.loading || contract.loading) return <Loading />;
@@ -68,9 +67,7 @@ export default function Checkout() {
   };
 
   const pendingMethod = b.payment?.status === 'PENDING' ? b.payment.method : null;
-  const method: CheckoutMethod =
-    chosen ?? (isCashBooking(b) ? 'CASH' : isTransferMethod(pendingMethod) ? pendingMethod : 'CARD');
-  const cashChosen = isCashBooking(b) && b.payment?.status === 'PENDING';
+  const method: CheckoutMethod = chosen ?? (isTransferMethod(pendingMethod) ? pendingMethod : 'CARD');
   // QR Pay and Bank Transfer appear only while enabled (or already chosen for this booking).
   const transferChoices = offeredTransfers(options.data);
   if (isTransferMethod(pendingMethod) && !transferChoices.includes(pendingMethod)) transferChoices.push(pendingMethod);
@@ -83,11 +80,6 @@ export default function Checkout() {
     const res = await chooseTransfer.run(() => api.post<Booking>(chooseTransferPath(b.id), { method }));
     if (res) booking.setData(res);
     return !!res;
-  };
-  // Choosing cash records nothing as paid: the booking waits for an administrator to record the cash.
-  const doPayCash = async () => {
-    const res = await payCash.run(() => api.post<Booking>(chooseCashPath(b.id)));
-    if (res) navigate(`/bookings/${b.id}`);
   };
 
   return (
@@ -159,7 +151,7 @@ export default function Checkout() {
             </div>
             <fieldset className="payment-methods" disabled={!c.signed}>
               <legend>Payment method</legend>
-              {(['CARD', 'CASH'] as const).map((m) => (
+              {(['CARD'] as const).map((m) => (
                 <label key={m} className={`payment-method${method === m ? ' is-selected' : ''}`}>
                   <input
                     type="radio"
@@ -193,24 +185,6 @@ export default function Checkout() {
               <p className="checkout-locked">
                 <span aria-hidden>🔒</span> Sign the rental agreement above to unlock payment.
               </p>
-            )}
-            {method === 'CASH' && (
-              <div className="stack">
-                <div className="alert info" role="note">
-                  {CASH_CHECKOUT_NOTE}
-                </div>
-                <p className="muted small">{CASH_HOLD_NOTE}</p>
-                <ErrorAlert error={payCash.error} />
-                {cashChosen ? (
-                  <Link to={`/bookings/${b.id}`} className="btn primary checkout-task__action">
-                    View booking
-                  </Link>
-                ) : (
-                  <button className="primary checkout-task__action" disabled={!c.signed || payCash.busy} onClick={doPayCash}>
-                    {payCash.busy ? 'Saving…' : `Pay ${money(b.initialCharge)} in cash at the counter`}
-                  </button>
-                )}
-              </div>
             )}
             {isTransferMethod(method) && c.signed && (
               <div className="stack">
@@ -360,11 +334,9 @@ export default function Checkout() {
               <dt>Pay now</dt>
               <dd>
                 {money(b.initialCharge)},{' '}
-                {method === 'CASH'
-                  ? 'paid in cash at the rental counter.'
-                  : isTransferMethod(method)
-                    ? 'transferred by you, and confirmed once an administrator verifies your receipt.'
-                    : 'charged when you pay below.'}
+                {isTransferMethod(method)
+                  ? 'transferred by you, and confirmed once an administrator verifies your receipt.'
+                  : 'charged when you pay below.'}
               </dd>
             </div>
             <div>
@@ -374,11 +346,9 @@ export default function Checkout() {
             <div>
               <dt>Balance</dt>
               <dd>
-                {method === 'CASH'
-                  ? 'Final total minus pay now, paid in cash at the counter when the rental ends (any excess is handed back in cash).'
-                  : isTransferMethod(method)
-                    ? 'Final total minus pay now, transferred when the rental ends with a new receipt (any excess is refunded to you by our team).'
-                    : 'Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).'}
+                {isTransferMethod(method)
+                  ? 'Final total minus pay now, transferred when the rental ends with a new receipt or paid at the rental counter (any excess is refunded to you by our team).'
+                  : 'Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).'}
               </dd>
             </div>
           </dl>

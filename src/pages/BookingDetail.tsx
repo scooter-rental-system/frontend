@@ -16,7 +16,6 @@ import { DetailRow, ErrorAlert, Loading, StageBadge, Stat, StatusBadge } from '.
 import {
   CASH_CANCEL_NOTE,
   CASH_END_NOTE,
-  CASH_PENDING_NOTE,
   cashAction,
   cashConfirmPath,
   cashPaymentLabel,
@@ -28,6 +27,8 @@ import {
   isTransferBooking,
   isTransferMethod,
   PAYMENT_METHOD_LABEL,
+  paymentHistory,
+  paymentMethodsLabel,
   RECEIPT_STATUS_LABEL,
   RECEIPT_STATUS_TONE,
   TRANSFER_CANCEL_NOTE,
@@ -54,7 +55,7 @@ import { useDemoMode } from '../useDemoMode';
 import { useRiderGps } from '../useRiderGps';
 import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
-import type { Booking, BookingStage, Contract, Invoice, PaymentIntent, RepairReport, Tracking } from '../types';
+import type { Booking, BookingStage, Contract, Invoice, Payment, PaymentIntent, RepairReport, Tracking } from '../types';
 
 const STAGE_TEXT: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'Awaiting payment',
@@ -127,6 +128,19 @@ export default function BookingDetail() {
     [id, showContract],
   );
   const inAdmin = useLocation().pathname.startsWith('/admin');
+  // While the final balance is open it is settled elsewhere (an admin records cash at the counter or approves a
+  // receipt): look again every 15 seconds, quietly, so both sides see Completed without reloading the page.
+  const settling = booking.data?.stage === 'BALANCE_DUE';
+  const { setData: setBooking } = booking;
+  const { setData: setInvoices } = invoices;
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setInterval(() => {
+      api.get<Booking>(bookingApi).then(setBooking, () => {});
+      api.get<Invoice[]>(`${bookingApi}/invoices`).then(setInvoices, () => {});
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, [settling, bookingApi, setBooking, setInvoices]);
   const cancel = useAction();
   const end = useAction();
   const { confirm, dialog } = useConfirm();
@@ -141,9 +155,8 @@ export default function BookingDetail() {
   // A viva demo rental has no payment to settle against: only the admin demo controls end it.
   const demoRental = isDemoRental(b);
   const canEnd = b.stage === 'IN_PROGRESS' && (isOwner || isAdmin(user?.role)) && !demoRental;
-  // Cash at the rental counter: nothing moves through the card provider, and only an admin records the cash.
+  // Paid in cash at the counter before cash left the checkout: only an admin records the cash.
   const cash = isCashBooking(b);
-  const cashPending = cash && b.status === 'PENDING' && b.payment?.status === 'PENDING';
   // QR Pay or bank transfer: the customer transfers outside the app and an admin approves the receipt.
   const transfer = isTransferBooking(b);
   const transferPending = transfer && b.status === 'PENDING' && b.payment?.status === 'PENDING';
@@ -231,7 +244,7 @@ export default function BookingDetail() {
             <Link className="btn primary" to={checkoutPath(b.id)}>
               {b.stage === 'PAYMENT_FAILED'
                 ? 'Try payment again'
-                : cashPending || transferPending
+                : transferPending
                   ? 'Payment options'
                   : 'Sign & pay'}
             </Link>
@@ -471,9 +484,9 @@ function BalanceDue({
 }
 
 /**
- * Cash at the rental counter: the cash due before the booking is confirmed, or at the end the adjusted final total
- * (rental subtotal less any approved repair reimbursement) against the cash received, with the cash balance due or
- * the cash to hand back. An admin gets the one confirmation that applies; a customer never does.
+ * A booking paid in cash at the counter before cash left the checkout: at the end the adjusted final total (rental
+ * subtotal less any approved repair reimbursement) against the cash received, with the balance due or the cash to
+ * hand back. An admin gets the one confirmation that applies; a customer never does.
  */
 function CashPanel({
   booking: b,
@@ -490,13 +503,14 @@ function CashPanel({
   const { confirm, dialog } = useConfirm();
   const p = b.payment;
   if (!p) return null;
-  const pending = b.status === 'PENDING' && p.status === 'PENDING';
   const settling = b.status === 'ACTIVE' && b.endedAt != null;
   const refundAfterCancel = b.status === 'CANCELLED' && p.refundDue != null;
-  if (!pending && !settling && !refundAfterCancel) return null;
+  if (!settling && !refundAfterCancel) return null;
+  // A transfer receipt for the balance waits for verification: the TransferPanel shows it.
+  if (settling && p.balanceDue != null && p.receipts.some((r) => r.status === 'PENDING_VERIFICATION')) return null;
   const action = cashAction(b, admin);
   const reimbursement = invoice ? invoiceReimbursement(invoice) : 0;
-  const title = pending ? 'Cash payment pending' : p.refundDue != null ? 'Cash refund due' : 'Cash balance due';
+  const title = p.refundDue != null ? 'Cash refund due' : 'Final balance due';
 
   const doConfirm = async () => {
     if (!action) return;
@@ -518,23 +532,14 @@ function CashPanel({
         <h2 id="cash-title">{title}</h2>
         <span className="badge amber">{admin ? 'Action needed' : 'At the rental counter'}</span>
       </div>
-      {pending && (
-        <>
-          <div className="checkout-amount">
-            <span className="muted">Cash due now</span>
-            <strong className="price">{money(p.amount)}</strong>
-          </div>
-          <p className="small">{CASH_PENDING_NOTE}</p>
-        </>
-      )}
       {settling && (
         <dl className="small cash-bill">
           {invoice && <DetailRow label="Rental subtotal">{money(invoice.subtotal)}</DetailRow>}
           {reimbursement > 0 && <DetailRow label="Approved repair reimbursement">−{money(reimbursement)}</DetailRow>}
           <DetailRow label="Final total">{money(b.pendingTotalCost)}</DetailRow>
-          <DetailRow label="Cash received">{money(p.amount)}</DetailRow>
+          <DetailRow label="Already received">{money(p.amount)}</DetailRow>
           {p.balanceDue != null && (
-            <DetailRow label="Cash balance due">
+            <DetailRow label="Balance due">
               <strong>{money(p.balanceDue)}</strong>
             </DetailRow>
           )}
@@ -552,8 +557,8 @@ function CashPanel({
         </div>
       )}
       <p className="small">
-        Payment method: <strong>Cash</strong>
-        {!admin && settling && p.balanceDue != null && ' · Pay the cash balance at the rental counter; the rental is completed once an administrator records it.'}
+        Paid at booking: <strong>Cash</strong>
+        {!admin && settling && p.balanceDue != null && ' · Pay the balance at the rental counter; the rental is completed once a staff member confirms the cash payment.'}
         {!admin && p.refundDue != null && ' · The cash is handed back to you at the rental counter.'}
       </p>
       {action && (
@@ -609,6 +614,14 @@ function DemoSettlement({ booking: b, invoice }: { booking: Booking; invoice?: I
 
 function PaymentCard({ booking: b }: { booking: Booking }) {
   const p = b.payment;
+  // Every amount recorded, each with its own method (a QR payment, then the final balance in cash). Loaded again
+  // whenever the booking's payment changes.
+  const detail = useLoad(
+    () => (p ? api.get<Payment>(`/bookings/${encodeURIComponent(b.id)}/payment`) : Promise.resolve(null)),
+    [b.id, b.status, p?.status, p?.amount, p?.balanceDue, p?.refundDue],
+  );
+  const history = p && detail.data?.transactions ? paymentHistory(detail.data.transactions, p.method) : null;
+  const methods = detail.data?.paymentMethods ?? [];
   return (
     <div className="card stack">
       <h2>Payment</h2>
@@ -635,12 +648,50 @@ function PaymentCard({ booking: b }: { booking: Booking }) {
                 {p.method === 'CASH' ? 'Cash refund due' : 'Refund due (not yet refunded)'}: {money(p.refundDue)}
               </div>
             )}
-            <div className="muted small">Method: {PAYMENT_METHOD_LABEL[p.method]}</div>
+            <div className="muted small">
+              {methods.length > 1 ? `Methods: ${paymentMethodsLabel(methods)}` : `Method: ${PAYMENT_METHOD_LABEL[p.method]}`}
+            </div>
           </div>
           <div className="right">
             <div className="num">{money(p.amount)}</div>
             <StatusBadge status={p.status} />
           </div>
+        </div>
+      )}
+      {history && history.rows.length > 0 && (
+        <div className="stack">
+          <h3 className="small">Payment history</h3>
+          <table className="payment-history small">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>For</th>
+                <th className="num">Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.method}</td>
+                  <td>{r.what}</td>
+                  <td className="num">{r.status === 'Refunded' ? `−${money(r.amount)}` : money(r.amount)}</td>
+                  <td>{r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2}>
+                  <strong>Total received</strong>
+                </td>
+                <td className="num">
+                  <strong>{money(history.received)}</strong>
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
         </div>
       )}
       {p && p.receipts.length > 0 && (

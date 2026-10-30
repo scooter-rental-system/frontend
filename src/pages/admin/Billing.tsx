@@ -17,6 +17,7 @@ import {
   matchesMethodFilter,
   METHOD_FILTERS,
   PAYMENT_METHOD_LABEL,
+  paymentMethodsLabel,
   RECEIPT_FILTERS,
   type MethodFilter,
   type ReceiptFilter,
@@ -31,9 +32,9 @@ function PaymentProviderStatus() {
   if (!setup.ready) {
     return (
       <div className="alert small" role="status">
-        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay by card. Cash at the rental
-        counter is still available and is recorded on each booking, and so are QR payments and bank transfers when
-        they are enabled under Payment settings.
+        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay by card. QR payments and
+        bank transfers are still available when they are enabled under Payment settings, and a final balance paid in
+        cash at the rental counter is still recorded on each booking.
       </div>
     );
   }
@@ -82,7 +83,7 @@ export default function Billing() {
             Payments <span className="accent-text">&amp; billing</span>
           </h1>
           <p className="muted">
-            Card payments through Stripe, cash at the counter, QR payments and bank transfers to verify, and the invoices
+            Card payments through Stripe, QR payments and bank transfers to verify, cash at the counter, and the invoices
             issued for each booking.
           </p>
         </div>
@@ -204,7 +205,7 @@ export default function Billing() {
                       </td>
                       <td data-label="Paid">{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
                       <td data-label="Method">
-                        {PAYMENT_METHOD_LABEL[p.method]}
+                        {p.paymentMethods.length > 1 ? paymentMethodsLabel(p.paymentMethods) : PAYMENT_METHOD_LABEL[p.method]}
                         {p.cardLast4 && <span className="cell-sub">card ending {p.cardLast4}</span>}
                         {p.method === 'CASH' && <span className="cell-sub">at the rental counter</span>}
                       </td>

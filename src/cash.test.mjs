@@ -1,170 +1,204 @@
 // Run with `npm test` (Node's built-in test runner).
-// Cash at the rental counter (backend BE-044): checkout offers Card / Online Payment and Cash, cash never depends on
-// the card provider, only an admin confirms cash (received or handed back), and the final cash balance comes from the
-// adjusted final total after any approved repair reimbursement. Source checks are CRLF-safe.
+// Cash at the rental counter (backend BE-044): cash is not a checkout option. The customer pays online (Card, QR Pay,
+// Bank Transfer) and only an admin confirms cash, for the final balance from the adjusted final total after any
+// approved repair reimbursement, with the exact amount on the button. Payment history keeps each method. Source
+// checks are CRLF-safe.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  CASH_CHECKOUT_NOTE, CASH_END_NOTE, CASH_HOLD_NOTE, CASH_PENDING_NOTE, cashAction, cashConfirmPath, cashPaymentLabel,
-  chooseCashPath, invoiceReimbursement, isCashBooking, METHOD_LABEL,
+  CASH_END_NOTE, cashAction, cashConfirmPath, cashPaymentLabel, COUNTER_BALANCE_NOTE, invoiceReimbursement,
+  isCashBooking, METHOD_LABEL,
 } from './cash.ts';
+import { matchesMethodFilter, paymentHistory, paymentMethodsLabel } from './transfers.ts';
 
 const src = fileURLToPath(new URL('.', import.meta.url));
 const read = (...parts) => readFileSync(join(src, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const checkout = read('pages', 'Checkout.tsx');
 const detail = read('pages', 'BookingDetail.tsx');
+const panel = read('components', 'TransferPanel.tsx');
 const invoice = read('components', 'InvoiceView.tsx');
 const billing = read('pages', 'admin', 'Billing.tsx');
 const cashSource = read('cash.ts');
 const demoTest = read('demo.test.mjs');
 
 const payment = (over = {}) => ({
-  status: 'PENDING', amount: 250, balanceDue: null, cardLast4: null, failureReason: null, paidAt: null,
-  method: 'CASH', refundDue: null, ...over,
+  status: 'SUCCESS', amount: 250, balanceDue: null, cardLast4: null, failureReason: null, paidAt: '2026-10-28T10:00:00',
+  method: 'QR_TRANSFER', refundDue: null, receipts: [], ...over,
 });
 const booking = (over = {}) => ({
-  id: 'b-1', status: 'PENDING', stage: 'AWAITING_PAYMENT', contractSigned: true, endedAt: null,
-  customer: { id: 'c-1', fullName: 'Nimal Perera', email: 'n@example.test', phone: null },
+  id: 'b-1', status: 'ACTIVE', stage: 'IN_PROGRESS', contractSigned: true, endedAt: null, pendingTotalCost: null,
+  customer: { id: 'c-1', fullName: 'Alex Traveller', email: 'a@example.test', phone: null },
   payment: payment(), ...over,
 });
+const ended = (over = {}, bookingOver = {}) => booking({ stage: 'BALANCE_DUE', endedAt: '2026-10-29T10:00:00',
+  pendingTotalCost: 6500, payment: payment(over), ...bookingOver });
 const lkr = (n) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 2 }).format(n);
 
-describe('checkout payment method', () => {
-  it('offers Card / Online Payment and Cash', () => {
+describe('checkout', () => {
+  it('offers Card / Online Payment, QR Pay and Bank Transfer, never Cash', () => {
+    assert.deepEqual(Object.keys(METHOD_LABEL), ['CARD', 'QR_TRANSFER', 'BANK_TRANSFER']);
     assert.equal(METHOD_LABEL.CARD, 'Card / Online Payment');
-    assert.equal(METHOD_LABEL.CASH, 'Cash');
-    assert.match(checkout, /<legend>Payment method<\/legend>/);
-    assert.match(checkout, /\(\['CARD', 'CASH'\] as const\)\.map\(\(m\) =>/);
-    assert.match(checkout, /type="radio"\s+name="payment-method"/);
+    assert.match(checkout, /\(\['CARD'\] as const\)\.map\(\(m\) =>/);
+    assert.match(checkout, /\{transferChoices\.map\(\(m\) => \(/);
+    // Only the comment explaining why may mention cash; the page itself offers no cash.
+    const code = checkout.replace(/^\s*\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /'CASH'|Cash|cash at the counter|Pay cash/);
   });
 
-  it('keeps cash selectable when card payments are unavailable', () => {
-    // Only the unsigned agreement locks the choice; the card provider's availability never does.
-    assert.match(checkout, /<fieldset className="payment-methods" disabled=\{!c\.signed\}>/);
-    assert.doesNotMatch(checkout, /disabled=\{[^}]*(available|config|setup)/);
-    assert.doesNotMatch(cashSource, /loadPaymentConfig|paymentSetup|stripe/i);
+  it('has no customer action that creates or confirms a cash payment', () => {
+    assert.doesNotMatch(cashSource, /chooseCashPath|CASH_CHECKOUT_NOTE|CASH_HOLD_NOTE|CASH_PENDING_NOTE|'initial'/);
+    assert.doesNotMatch(checkout, /\/cash`|cash\/initial|chooseCash|cashConfirmPath|payCash/);
+    assert.doesNotMatch(detail, /CASH_PENDING_NOTE|cashPending/);
   });
 
-  it('explains that an administrator confirms a cash booking, and the 30-minute hold', () => {
-    assert.equal(CASH_CHECKOUT_NOTE,
-      'Pay in cash at the rental counter. Your booking will be confirmed after an administrator records the payment.');
-    assert.match(CASH_HOLD_NOTE, /released 30 minutes after they are made/);
-    assert.match(checkout, /\{method === 'CASH' && \(\s*<div className="stack">\s*<div className="alert info" role="note">\s*\{CASH_CHECKOUT_NOTE\}/);
-  });
-
-  it('only records the choice: cash is never marked paid by the customer', () => {
-    assert.equal(chooseCashPath('b/1'), '/bookings/b%2F1/cash');
-    assert.match(checkout, /api\.post<Booking>\(chooseCashPath\(b\.id\)\)/);
-    assert.doesNotMatch(checkout, /cash\/initial|cashConfirmPath/);
-  });
-
-  it('leaves the card checkout as it was, shown only for Card', () => {
+  it('keeps the card checkout as it was', () => {
     assert.match(checkout, /\{method === 'CARD' && \(\s*<>\s*<div className="stripe-container">\s*<StripePayment/);
     assert.match(checkout, /createIntent=\{\(\) => api\.post<PaymentIntent>\(`\/bookings\/\$\{b\.id\}\/payment-intent`\)\}/);
-    assert.match(checkout, /<li>Processed by Stripe<\/li>/);
-  });
-
-  it('says nothing about Stripe or cards for cash', () => {
-    for (const text of [CASH_CHECKOUT_NOTE, CASH_HOLD_NOTE, CASH_PENDING_NOTE, CASH_END_NOTE, METHOD_LABEL.CASH]) {
-      assert.doesNotMatch(text, /stripe|card|electronic/i, text);
-    }
   });
 });
 
-describe('admin cash confirmation', () => {
+describe('admin "Confirm Cash Payment Received"', () => {
   it('is never offered to a customer, or for a card payment', () => {
-    assert.equal(cashAction(booking(), false), null);
-    assert.equal(cashAction(booking({ payment: payment({ method: 'CARD' }) }), true), null);
+    const due = ended({ balanceDue: 6250 });
+    assert.equal(cashAction(due, false), null);
+    assert.equal(cashAction(ended({ method: 'CARD', balanceDue: 6250 }), true), null, 'the card balance stays with the provider');
     assert.equal(cashAction(booking({ payment: null }), true), null);
     assert.match(detail, /admin=\{inAdmin && isAdmin\(user\?\.role\)\}/);
   });
 
-  it('shows the initial cash due and confirms it with a dialog', () => {
-    const a = cashAction(booking(), true);
-    assert.equal(a.step, 'initial');
-    assert.equal(a.amount, 250);
-    assert.equal(a.dueLabel, 'Cash due now');
-    assert.equal(a.label, 'Confirm cash received');
-    assert.match(a.message, new RegExp(`Confirm only after you have received ${lkr(250).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} in cash`));
-    assert.equal(cashAction(booking({ contractSigned: false }), true), null, 'unsigned agreement');
-    assert.equal(cashAction(booking({ payment: payment({ status: 'SUCCESS' }) }), true), null, 'already recorded');
-    assert.match(detail, /const ok = await confirm\(\{\s*title: action\.title,\s*message: action\.message,\s*confirmLabel: action\.label,/);
-    assert.match(detail, /api\.post<Booking>\(cashConfirmPath\(b\.id, action\.step\), \{ amount: action\.amount \}\)/);
-    assert.equal(cashConfirmPath('b 1', 'initial'), '/admin/bookings/b%201/cash/initial');
-  });
-
-  it('guards against double clicks while recording', () => {
-    assert.match(detail, /<button className="primary" onClick=\{doConfirm\} disabled=\{record\.busy\}>/);
-    assert.match(detail, /\{record\.busy \? 'Recording…' : action\.label\}/);
-  });
-
-  it('shows the payment as Cash once recorded', () => {
-    assert.equal(cashPaymentLabel('SUCCESS'), 'Cash received');
-    assert.equal(cashPaymentLabel('PENDING'), 'Cash payment pending');
-    assert.equal(cashPaymentLabel('REFUNDED'), 'Cash refunded');
-    assert.equal(isCashBooking(booking()), true);
-    assert.match(detail, /\{p\.method === 'CASH' && <span className="muted small"> · Cash at the rental counter<\/span>\}/);
-    assert.match(billing, /\{PAYMENT_METHOD_LABEL\[p\.method\]\}/);
-  });
-});
-
-describe('final cash settlement', () => {
-  const ended = (over) => booking({ status: 'ACTIVE', stage: 'BALANCE_DUE', endedAt: '2026-10-29T10:00:00',
-    pendingTotalCost: 6500, payment: payment({ status: 'SUCCESS', ...over }) });
-
-  it('asks the admin to confirm the final cash balance from the adjusted final total', () => {
+  it('shows the exact server balance on the button', () => {
     const a = cashAction(ended({ balanceDue: 6250 }), true);
     assert.equal(a.step, 'balance');
     assert.equal(a.amount, 6250);
-    assert.equal(a.dueLabel, 'Cash balance due');
-    assert.equal(a.label, 'Confirm final cash received');
-    assert.match(detail, /<DetailRow label="Final total">\{money\(b\.pendingTotalCost\)\}<\/DetailRow>/);
-    assert.match(detail, /<DetailRow label="Cash received">\{money\(p\.amount\)\}<\/DetailRow>/);
-    assert.match(detail, /<DetailRow label="Cash balance due">\s*<strong>\{money\(p\.balanceDue\)\}<\/strong>/);
+    assert.equal(a.label, `Confirm Cash Payment Received — ${lkr(6250)}`);
+    assert.match(a.message, /recorded as a cash payment, the invoice is settled and the booking is completed/);
+    assert.equal(cashConfirmPath('b 1', 'balance'), '/admin/bookings/b%201/cash/balance');
+    // The amount sent is the one the backend returned; the backend refuses any other.
+    assert.match(panel, /api\.post<Booking>\(cashConfirmPath\(b\.id, action\.step\), \{ amount: action\.amount \}\)/);
   });
 
-  it('shows the approved repair reimbursement in the cash balance, never the claimed amount', () => {
+  it('is not shown before the final bill, while a refund is due, at zero, after completion or cancellation', () => {
+    assert.equal(cashAction(booking({ status: 'PENDING', stage: 'AWAITING_PAYMENT', payment: payment({ status: 'PENDING' }) }), true), null, 'pending');
+    assert.equal(cashAction(booking(), true), null, 'rental in progress: no final bill');
+    assert.equal(cashAction(ended({ refundDue: 100 }), true), null, 'refund due (QR)');
+    assert.equal(cashAction(ended({ balanceDue: 0 }), true), null, 'zero balance');
+    assert.equal(cashAction(ended({}), true), null, 'nothing due');
+    assert.equal(cashAction(ended({ amount: 6500 }, { status: 'COMPLETED', stage: 'COMPLETED', endedAt: null }), true), null, 'completed');
+    assert.equal(cashAction(ended({ balanceDue: 6250 }, { status: 'CANCELLED', stage: 'CANCELLED' }), true), null, 'cancelled');
+  });
+
+  it('is not shown while a final QR or bank receipt waits for verification', () => {
+    const waiting = ended({ balanceDue: 6250, receipts: [{ id: 'r', kind: 'BALANCE', method: 'QR_TRANSFER', amount: 6250, status: 'PENDING_VERIFICATION' }] });
+    assert.equal(cashAction(waiting, true), null);
+    const rejected = ended({ balanceDue: 6250, receipts: [{ id: 'r', kind: 'BALANCE', method: 'QR_TRANSFER', amount: 6250, status: 'REJECTED' }] });
+    assert.equal(cashAction(rejected, true).amount, 6250);
+  });
+
+  it('works for a booking first paid by bank transfer too', () => {
+    assert.equal(cashAction(ended({ method: 'BANK_TRANSFER', balanceDue: 6250 }), true).amount, 6250);
+  });
+
+  it('asks for confirmation and ignores double clicks while recording', () => {
+    assert.match(panel, /const ok = await confirm\(\{\s*title: action\.title,\s*message: action\.message,\s*confirmLabel: 'Confirm cash payment received',/);
+    assert.match(panel, /<button className="primary" onClick=\{doCash\} disabled=\{record\.busy\}>\s*\{record\.busy \? 'Recording…' : action\.label\}/);
+  });
+
+  it('shows the final bill above it: final total, approved reimbursement, already received, balance due', () => {
+    assert.match(panel, /<DetailRow label="Adjusted final total">\{money\(b\.pendingTotalCost\)\}<\/DetailRow>/);
+    assert.match(panel, /\{reimbursement > 0 && <DetailRow label="Approved repair reimbursement">−\{money\(reimbursement\)\}<\/DetailRow>\}/);
+    assert.match(panel, /<DetailRow label="Already received">\{money\(p\.amount\)\}<\/DetailRow>/);
+    assert.match(panel, /<DetailRow label="Balance due">\s*<strong>\{money\(p\.balanceDue\)\}<\/strong>/);
     assert.equal(invoiceReimbursement({ subtotal: 8000, total: 6500 }), 1500);
-    assert.equal(invoiceReimbursement({ subtotal: 1500, total: 0 }), 1500);
     assert.equal(invoiceReimbursement({ subtotal: 3250, total: 3250 }), 0);
-    assert.match(detail, /\{reimbursement > 0 && <DetailRow label="Approved repair reimbursement">−\{money\(reimbursement\)\}<\/DetailRow>\}/);
-    assert.doesNotMatch(detail.slice(detail.indexOf('function CashPanel')), /claimedAmount/);
-  });
-
-  it('shows a cash refund due, which only an admin confirms', () => {
-    const a = cashAction(ended({ refundDue: 500 }), true);
-    assert.equal(a.step, 'refund');
-    assert.equal(a.amount, 500);
-    assert.equal(a.label, 'Confirm cash refund given');
-    assert.equal(cashAction(ended({ refundDue: 500 }), false), null);
-    const cancelled = booking({ status: 'CANCELLED', stage: 'CANCELLED', payment: payment({ status: 'SUCCESS', refundDue: 250 }) });
-    assert.equal(cashAction(cancelled, true).step, 'refund');
-    assert.match(detail, /<DetailRow label="Cash refund due">\s*<strong>\{money\(p\.refundDue\)\}<\/strong>/);
-  });
-
-  it('never shows the card balance panel or an online payment for cash', () => {
-    assert.match(detail, /\/\/ A cash balance is paid at the counter, never online: the CashPanel shows it\.\s*if \(isCashBooking\(b\)\) return null;/);
-    assert.match(detail, /message: cash\s*\? CASH_END_NOTE\s*: transfer\s*\? TRANSFER_END_NOTE\s*: 'The final total is calculated and the balance charged to your card\.'/);
+    assert.doesNotMatch(panel, /claimedAmount/);
   });
 });
 
-describe('invoice', () => {
-  it('shows the approved reimbursement, the cash received and the cash balance or refund due', () => {
-    assert.match(invoice, /const cash = invoice\.kind === 'FINAL' && invoice\.paymentMethod === 'CASH';/);
-    assert.match(invoice, /<td colSpan=\{3\}>Cash already received<\/td>\s*<td className="num">\{money\(invoice\.cashReceived\)\}<\/td>/);
-    assert.match(invoice, /<strong>Cash balance due<\/strong>[\s\S]*?\{money\(invoice\.balanceDue\)\}/);
-    assert.match(invoice, /<strong>Cash refund due<\/strong>[\s\S]*?\{money\(invoice\.refundDue\)\}/);
-    assert.match(invoice, /Payment method: Cash at the rental counter\./);
-    assert.match(invoice, /credits\.length > 0 \? 'Adjusted final total' : 'Total'/);
+describe('customer', () => {
+  it('is told they may pay at the counter, with no button to mark cash paid', () => {
+    assert.equal(COUNTER_BALANCE_NOTE,
+      'You may also pay the outstanding balance directly at the rental counter. A staff member will confirm the cash payment.');
+    assert.match(panel, /<p className="muted small">\{COUNTER_BALANCE_NOTE\}<\/p>/);
+    const customerSide = panel.slice(panel.indexOf('function BalanceTransfer'), panel.indexOf('function AdminBalance'));
+    assert.doesNotMatch(customerSide, /cashConfirmPath|cashAction/);
   });
 
-  it('keeps the card balance row for card invoices only, with no Stripe or electronic refund wording for cash', () => {
-    assert.match(invoice, /\{!cash && invoice\.balanceDue != null && \(/);
+  it('sees Completed after the admin confirms, without reloading', () => {
+    assert.match(detail, /const settling = booking\.data\?\.stage === 'BALANCE_DUE';/);
+    assert.match(detail, /api\.get<Booking>\(bookingApi\)\.then\(setBooking, \(\) => \{\}\);/);
+    assert.match(detail, /\}, 15_000\);/);
+  });
+});
+
+describe('payment history', () => {
+  const tx = (over) => ({ id: Math.random().toString(), status: 'SUCCESS', createdAt: '2026-10-29T10:00:00', recordedBy: 'Admin', ...over });
+
+  it('keeps each method: QR Pay 250 approved, Cash 6,250 received, total 6,500', () => {
+    const h = paymentHistory([
+      tx({ kind: 'INITIAL', method: 'QR_TRANSFER', amount: 250 }),
+      tx({ kind: 'BALANCE', method: 'CASH', amount: 6250 }),
+    ], 'QR_TRANSFER');
+    assert.deepEqual(h.rows.map((r) => [r.method, r.what, r.amount, r.status]), [
+      ['QR Pay', 'Initial payment', 250, 'Approved'],
+      ['Cash', 'Final balance', 6250, 'Received'],
+    ]);
+    assert.equal(h.received, 6500);
+  });
+
+  it('leaves out failed card attempts and takes refunds off the total', () => {
+    const h = paymentHistory([
+      tx({ kind: 'INITIAL', method: 'CARD', amount: 250, status: 'FAILED' }),
+      tx({ kind: 'INITIAL', method: 'CARD', amount: 250 }),
+      tx({ kind: 'REFUND', method: 'CARD', amount: 100 }),
+    ], 'CARD');
+    assert.deepEqual(h.rows.map((r) => r.status), ['Paid', 'Refunded']);
+    assert.equal(h.received, 150);
+    assert.equal(paymentHistory([tx({ kind: 'INITIAL', method: null, amount: 250 })], 'BANK_TRANSFER').rows[0].method, 'Bank Transfer');
+  });
+
+  it('names every method on the booking, the invoice and the admin payments list', () => {
+    assert.equal(paymentMethodsLabel(['QR_TRANSFER', 'CASH']), 'QR Pay + Cash');
+    assert.equal(paymentMethodsLabel(['BANK_TRANSFER', 'CASH']), 'Bank Transfer + Cash');
+    assert.match(detail, /<h3 className="small">Payment history<\/h3>/);
+    assert.match(detail, /<strong>Total received<\/strong>/);
+    assert.match(detail, /methods\.length > 1 \? `Methods: \$\{paymentMethodsLabel\(methods\)\}`/);
+    assert.match(invoice, /Payment methods: \{paymentMethodsLabel\(methods\)\}, each recorded or verified by an administrator\./);
+    assert.match(billing, /\{p\.paymentMethods\.length > 1 \? paymentMethodsLabel\(p\.paymentMethods\) : PAYMENT_METHOD_LABEL\[p\.method\]\}/);
+  });
+
+  it('finds a QR booking settled in cash under both filters', () => {
+    const mixed = { method: 'QR_TRANSFER', refundDue: null, paymentMethods: ['QR_TRANSFER', 'CASH'] };
+    assert.equal(matchesMethodFilter(mixed, 'CASH'), true);
+    assert.equal(matchesMethodFilter(mixed, 'QR_TRANSFER'), true);
+    assert.equal(matchesMethodFilter(mixed, 'BANK_TRANSFER'), false);
+    assert.equal(matchesMethodFilter({ method: 'CARD', refundDue: null, paymentMethods: ['CARD'] }, 'CASH'), false);
+  });
+});
+
+describe('bookings paid in cash earlier', () => {
+  it('still settle the balance and hand back cash at the counter, by an admin only', () => {
+    const cash = ended({ method: 'CASH', balanceDue: 7750 });
+    assert.equal(isCashBooking(cash), true);
+    assert.equal(cashAction(cash, true).step, 'balance');
+    const refund = cashAction(ended({ method: 'CASH', refundDue: 500 }), true);
+    assert.equal(refund.step, 'refund');
+    assert.equal(refund.label, 'Confirm cash refund given');
+    assert.equal(cashAction(ended({ method: 'CASH', refundDue: 500 }), false), null);
+    assert.equal(cashPaymentLabel('SUCCESS'), 'Cash received');
+    assert.equal(cashPaymentLabel('REFUNDED'), 'Cash refunded');
+    assert.match(detail, /\{p\.method === 'CASH' \? cashPaymentLabel\(p\.status\) : paymentLabel\(p\.status\)\}/);
+    assert.match(detail, /api\.post<Booking>\(cashConfirmPath\(b\.id, action\.step\), \{ amount: action\.amount \}\)/);
+  });
+
+  it('say nothing about Stripe or cards', () => {
+    for (const text of [CASH_END_NOTE, COUNTER_BALANCE_NOTE]) {
+      assert.doesNotMatch(text, /stripe|card|electronic/i, text);
+    }
     const cashRows = invoice.slice(invoice.indexOf('{cash && ('));
-    assert.doesNotMatch(cashRows, /stripe|card|electronic/i);
+    assert.doesNotMatch(cashRows.slice(0, cashRows.indexOf('</tbody>')), /stripe|card|electronic/i);
   });
 });
 
