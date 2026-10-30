@@ -70,9 +70,9 @@ export function discover(scooters: readonly Scooter[], d: Discovery): Scooter[] 
   const byEngine = (s: Scooter) => (s.engineCc == null ? -Infinity : s.engineCc);
   switch (d.sort) {
     case 'price-asc':
-      return shown.sort((a, b) => a.hourlyRate - b.hourlyRate || a.perKmRate - b.perKmRate);
+      return shown.sort((a, b) => a.dailyRate - b.dailyRate || a.hourlyRate - b.hourlyRate || a.perKmRate - b.perKmRate);
     case 'price-desc':
-      return shown.sort((a, b) => b.hourlyRate - a.hourlyRate || b.perKmRate - a.perKmRate);
+      return shown.sort((a, b) => b.dailyRate - a.dailyRate || b.hourlyRate - a.hourlyRate || b.perKmRate - a.perKmRate);
     case 'engine-desc':
       return shown.sort((a, b) => byEngine(b) - byEngine(a));
     default:

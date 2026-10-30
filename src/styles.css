@@ -1123,6 +1123,9 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--text-muted);
 }
 
+/* "Forgot password?" under the login password field. */
+.auth-forgot { align-self: flex-end; font-size: 0.875rem; font-weight: 600; }
+
 /* ─── Admin shell ───────────────────────────────────────────── */
 /* Figma admin screens: a full-height charcoal sidebar (in both themes), a compact top bar and the page on the
    layered background. Below 900px the sidebar is a drawer behind the "Admin menu" button. */
@@ -2748,3 +2751,149 @@ fieldset.booking-fieldset { border-radius: var(--radius-lg); }
     scroll-behavior: auto !important;
   }
 }
+
+/* Registration consent (SDS 8.5): the checkbox beside its statement, the error below. */
+.register-consent { display: flex; flex-direction: column; gap: 6px; }
+
+/* "How pricing works" (PricingInfo): scooter, distance and gear rules; one column on phones, three from 900px. */
+.pricing-info { display: flex; flex-direction: column; gap: var(--space-4); }
+.pricing-info__grid { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) {
+  .pricing-info__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.pricing-info__grid > div { padding: var(--space-4); border-radius: var(--radius); background: var(--surface-2); min-width: 0; }
+.pricing-info__grid h3, .pricing-info__grid h4 { font-size: 1rem; margin-bottom: var(--space-2); color: var(--accent); }
+.pricing-info__grid ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 4px; font-size: 0.9375rem; }
+
+/* Repair / breakdown reports (customer panel and admin list). */
+.repair-list, .repair-admin-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+.repair-list li { padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--surface-2); }
+.repair-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Checkout summary: labelled rate rows that wrap on narrow screens; the pay-now, final-total and balance stages. */
+.summary-subtitle { font-size: 0.875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.summary-line dd { text-align: right; overflow-wrap: anywhere; }
+.summary-rates .summary-line dd.num { white-space: nowrap; }
+.summary-stages div { flex-wrap: wrap; }
+.summary-stages dt { width: 88px; font-weight: 700; color: var(--text); }
+.summary-stages dd { flex: 1 1 160px; min-width: 0; }
+
+/* Viva demo mode (backend profile "demo" only): a banner on every page and the admin demo controls. */
+.demo-banner {
+  padding: 6px var(--space-4);
+  background: var(--warning-soft);
+  border-bottom: 1px solid var(--warning);
+  color: var(--warning-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+}
+.demo-panel { box-shadow: inset 3px 0 0 var(--warning); }
+.demo-panel__action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.demo-panel__action p { flex: 1 1 16rem; margin: 0; }
+
+/* Repair photos: the picker on the customer's report form and the thumbnails shown to the customer and admins. */
+.repair-photo-picker { display: flex; flex-direction: column; gap: 6px; }
+.repair-photo-picker__list,
+.repair-photos { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0; padding: 0; }
+.repair-photo-picker__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 100%;
+}
+.repair-photo-picker__list li span { overflow-wrap: anywhere; }
+.repair-photo-picker__list img,
+.repair-photos img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: block;
+}
+.repair-photos a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.repair-photos__loading {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius);
+  background: var(--surface-2, var(--border));
+}
+.repair-photos__missing { color: var(--text-muted); }
+.invoice__credit td { color: var(--success-text); }
+.invoice__subtotal td { border-top: 1px solid var(--border); }
+
+/* Cash at the rental counter (BE-044): the checkout payment method choice and the cash rows of an invoice. */
+.payment-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.payment-methods legend { font-weight: 600; margin-bottom: var(--space-2); }
+.payment-method {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.payment-method.is-selected { border-color: var(--brand); }
+.payment-methods:disabled .payment-method { cursor: not-allowed; opacity: 0.6; }
+
+/* QR payments and bank transfers (BE-045): the payment details, the receipt upload and the admin receipt review. */
+.transfer-qr { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+.transfer-qr__image {
+  width: 200px;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #fff;
+  display: block;
+}
+.transfer-details { display: grid; gap: var(--space-2); margin: 0; }
+.transfer-details > div { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.transfer-details dt { color: var(--text-muted); min-width: 9.5rem; }
+.transfer-details dd { margin: 0; overflow-wrap: anywhere; }
+.copy-button { padding: 2px 10px; }
+.receipt-review__body { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+.receipt-review__body dl { flex: 1 1 260px; margin: 0; }
+.receipt-review__image {
+  width: 160px;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: block;
+}
+.receipt-history { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.payment-history { width: 100%; border-collapse: collapse; }
+.payment-history th, .payment-history td { padding: var(--space-1) var(--space-2); text-align: left; }
+.payment-history .num { text-align: right; }
+.payment-history tfoot td { border-top: 1px solid var(--border); }
+.auth-image__loading {
+  display: block;
+  width: 160px;
+  height: 160px;
+  max-width: 100%;
+  border-radius: var(--radius);
+  background: var(--surface-2, var(--border));
+}
+.auth-image__missing { color: var(--text-muted); }

@@ -126,7 +126,8 @@ describe('payment status labels (PaymentCard)', () => {
 
   it('is used by the booking page instead of the old two-way label', () => {
     const detail = read('pages', 'BookingDetail.tsx');
-    assert.match(detail, /\{paymentLabel\(p\.status\)\}/);
+    // A cash payment (recorded at the counter before cash left the checkout) has its own words: "Cash received".
+    assert.match(detail, /\{p\.method === 'CASH' \? cashPaymentLabel\(p\.status\) : paymentLabel\(p\.status\)\}/);
     assert.doesNotMatch(detail, /'Refunded' : 'Charged'/);
   });
 });
@@ -164,6 +165,7 @@ describe('booking summary', () => {
   const quote = {
     scooterId: 'test',
     currency: 'LKR',
+    dailyRate: 2500,
     hourlyRate: 250,
     perKmRate: 15,
     gear: [{ gearItemId: 'g1', name: 'Tent', quantity: 2, dailyRate: 500, days: 1, lineTotal: 1000 }],
@@ -175,7 +177,7 @@ describe('booking summary', () => {
   it('lists the backend quote values as they are', () => {
     const { lines, payNow } = quoteLines(quote);
     assert.deepEqual(lines, [
-      { label: 'Scooter', detail: 'First hour', amount: 250 },
+      { label: 'Scooter', detail: 'First hour (minimum)', amount: 250 },
       { label: 'Tent × 2', detail: 'First day', amount: 1000 },
     ]);
     assert.equal(payNow, 1234);
@@ -187,7 +189,7 @@ describe('booking summary', () => {
   });
 
   it('handles a quote without gear', () => {
-    assert.deepEqual(quoteLines({ ...quote, gear: [] }).lines, [{ label: 'Scooter', detail: 'First hour', amount: 250 }]);
+    assert.deepEqual(quoteLines({ ...quote, gear: [] }).lines, [{ label: 'Scooter', detail: 'First hour (minimum)', amount: 250 }]);
   });
 });
 
@@ -220,5 +222,25 @@ describe('ScooterBook keeps its booking behaviour', () => {
 
   it('keeps the Phase 2 way back to the fleet', () => {
     assert.match(book, /<Link to="\/#fleet" className="back-link">/);
+  });
+});
+
+describe('checkout summary (open-ended rental)', () => {
+  const checkout = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), 'pages', 'Checkout.tsx'), 'utf8')
+    .replace(/\r\n/g, '\n');
+
+  it('lists each rate on its own labelled row', () => {
+    for (const label of ['Daily rate', 'Extra-hour rate', 'Excess-distance rate', 'Included distance']) {
+      assert.match(checkout, new RegExp(`<dt>${label}</dt>`), label);
+    }
+    assert.match(checkout, /\{INCLUDED_KM_PER_DAY\} km per charged rental day/);
+  });
+
+  it('explains pay now and keeps the final total unknown until the rental ends', () => {
+    assert.match(checkout, /Pay now covers the one-hour minimum\{b\.gear\.length > 0 && ' and the first day of your camping gear'\}/);
+    assert.match(checkout, /final rental charge is calculated when the rental ends using rental time, excess distance and any camping/);
+    assert.match(checkout, /<dt>Final total<\/dt>\s*<dd>Not known yet/);
+    assert.match(checkout, /<dt>Balance<\/dt>/);
+    assert.match(checkout, /<dd className="num">\{money\(b\.initialCharge\)\}<\/dd>/);
   });
 });

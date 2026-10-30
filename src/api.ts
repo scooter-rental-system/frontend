@@ -100,6 +100,40 @@ export const api = {
   delete: <T>(path: string)                  => request<T>('DELETE', path),
 };
 
+/** An ApiError from a failed response, with the server's message when it sent one. */
+async function errorFrom(res: Response): Promise<ApiError> {
+  let message = `Request failed (${res.status})`;
+  try {
+    const data = await res.json();
+    if (data?.message) message = data.message;
+  } catch {
+    // Non-JSON error body — keep the default message
+  }
+  return new ApiError(res.status, message);
+}
+
+/** POSTs multipart form data (e.g. a repair report with photos); the browser sets the content type and boundary. */
+export async function postForm<T>(path: string, form: FormData): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`/api${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401 && token) onUnauthorized();
+  if (!res.ok) throw await errorFrom(res);
+  return (await res.json()) as T;
+}
+
+/** Fetches an authenticated binary (e.g. a repair photo) as a Blob; such files are never public URLs. */
+export async function getBlob(path: string): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (res.status === 401 && token) onUnauthorized();
+  if (!res.ok) throw await errorFrom(res);
+  return res.blob();
+}
+
 /** Downloads an authenticated file (e.g. CSV export). */
 export async function download(path: string, filename: string) {
   const token = getToken();

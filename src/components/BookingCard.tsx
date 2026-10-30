@@ -4,6 +4,7 @@ import { needsAction } from '../bookings';
 import { dateTime, humanize, money } from '../format';
 import { cardAction } from '../rental';
 import { bookingActionPath } from '../routes';
+import { isTransferMethod, PAYMENT_METHOD_LABEL } from '../transfers';
 import type { Booking } from '../types';
 import { DetailRow, ScooterIllustration, StageBadge } from './ui';
 
@@ -69,7 +70,8 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
             {b.scooter.model} ({b.scooter.code}, {b.scooter.plateNumber})
           </DetailRow>
           <DetailRow label="Rates">
-            {money(b.scooter.hourlyRate)} / hour · {money(b.scooter.perKmRate)} / km
+            {money(b.scooter.dailyRate)} / day · {money(b.scooter.hourlyRate)} / extra hour ·{' '}
+            {money(b.scooter.perKmRate)} / km above the included distance
           </DetailRow>
           <DetailRow label="Pickup">{b.pickupLocation}</DetailRow>
           {b.dropLocation && <DetailRow label="Drop-off">{b.dropLocation}</DetailRow>}
@@ -94,8 +96,12 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
             {b.payment ? (
               <>
                 {humanize(b.payment.status)} · {money(b.payment.amount)}
+                {b.payment.method === 'CASH' && ' · cash'}
+                {isTransferMethod(b.payment.method) && ` · ${PAYMENT_METHOD_LABEL[b.payment.method]}`}
                 {b.payment.cardLast4 && ` · card ending ${b.payment.cardLast4}`}
                 {b.payment.balanceDue != null && b.payment.balanceDue > 0 && ` · balance due ${money(b.payment.balanceDue)}`}
+                {b.payment.refundDue != null &&
+                  ` · ${b.payment.method === 'CASH' ? 'cash ' : ''}refund due ${money(b.payment.refundDue)}`}
                 {b.payment.failureReason && <div className="field-error">{b.payment.failureReason}</div>}
               </>
             ) : (

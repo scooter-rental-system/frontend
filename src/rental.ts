@@ -151,7 +151,7 @@ export const STAGE_HELP: Record<BookingStage, string> = {
   PAYMENT_FAILED: 'The last payment did not go through. Try again to keep this booking.',
   UPCOMING: 'Paid and confirmed. You can cancel for a full refund until the rental starts.',
   IN_PROGRESS: 'Your rental is running. End it in the app when you return the scooter.',
-  BALANCE_DUE: 'The rental has ended, but the remaining balance could not be charged yet.',
+  BALANCE_DUE: 'The rental has ended, but the final payment has not been settled yet.',
   COMPLETED: 'This rental is complete. Thank you for riding with us.',
   CANCELLED: 'This booking was cancelled.',
   REFUNDED: 'This booking was cancelled and the payment refunded.',

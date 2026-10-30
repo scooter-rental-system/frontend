@@ -8,6 +8,8 @@ import { ErrorAlert, Loading, ScooterThumb } from '../components/ui';
 import { quoteLines } from '../checkout';
 import { availabilityOf } from '../discovery';
 import { dateTimeInput, money, nextQuarterHour } from '../format';
+import { PricingInfo } from '../components/PricingInfo';
+import { GEAR_PRICING_RULE, INCLUDED_KM_PER_DAY, SCOOTER_PRICING_RULE } from '../pricing';
 import { useAction, useLoad } from '../hooks';
 import type { Booking, GearItem, Quote, Scooter } from '../types';
 
@@ -105,10 +107,14 @@ export default function ScooterBook() {
               </div>
               {s.description && <p className="small">{s.description}</p>}
               <p className="scooter-price">
-                <span className="price">{money(s.hourlyRate)}</span>
-                <span className="muted small"> / hour</span>
-                <span className="scooter-price__extra muted small">+ {money(s.perKmRate)} / km (from GPS)</span>
+                <span className="price">{money(s.dailyRate)}</span>
+                <span className="muted small"> / day</span>
+                <span className="scooter-price__extra muted small">
+                  {money(s.hourlyRate)} / extra hour · {INCLUDED_KM_PER_DAY} km/day included, then{' '}
+                  {money(s.perKmRate)} / km (from GPS)
+                </span>
               </p>
+              <p className="muted small">{SCOOTER_PRICING_RULE}</p>
             </div>
           </section>
           {!s.available && (
@@ -154,7 +160,7 @@ export default function ScooterBook() {
           <fieldset className="card booking-fieldset">
             <legend>Camping &amp; travel gear</legend>
             <div className="stack">
-              <p className="muted small">Optional. Gear is charged for each started day of the rental.</p>
+              <p className="muted small">Optional. {GEAR_PRICING_RULE}</p>
               <ErrorAlert error={gear.error ? `We couldn't load the gear list. ${gear.error}` : null} />
               {gear.data?.length === 0 && <p className="muted small">No gear is offered at the moment.</p>}
               {gear.data && gear.data.length > 0 && (
@@ -182,6 +188,10 @@ export default function ScooterBook() {
               )}
             </div>
           </fieldset>
+
+          <div className="card">
+            <PricingInfo rates={s} />
+          </div>
 
           {/* Small screens: the amount and a shortcut to the summary stay in reach while filling in the form. */}
           <div className="booking-mobilebar">
@@ -221,8 +231,11 @@ export default function ScooterBook() {
           <details className="summary-explain">
             <summary>How the final total is calculated</summary>
             <p className="muted small">
-              When you end the rental: hours × hourly rate + km × per-km rate + gear for each started day. The balance
-              after today's payment is charged to the same card.
+              Today you pay the one-hour minimum and one day of any gear. When you end the rental: full days × daily
+              rate, plus extra hours × extra-hour rate (more than 8 extra hours counts as another day), plus the km
+              above the allowance ({INCLUDED_KM_PER_DAY} km per charged day, at least {INCLUDED_KM_PER_DAY} km) × per-km
+              rate, plus gear per day (more than 12 extra hours counts as another day). The balance after today's
+              payment is charged to the same card, or any excess is refunded.
             </p>
           </details>
           <ErrorAlert error={create.error} />

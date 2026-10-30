@@ -14,6 +14,7 @@ const PATHS: Record<AdminIconName, string[]> = {
   notifications: ['M6 16V11a6 6 0 0 1 12 0v5l2 2H4z', 'M10 20a2 2 0 0 0 4 0'],
   plus: ['M12 5v14', 'M5 12h14'],
   back: ['M15 6l-6 6 6 6'],
+  profile: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8'],
 };
 
 export function AdminIcon({ name }: { name: AdminIconName }) {

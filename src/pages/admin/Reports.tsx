@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, download } from '../../api';
 import { ErrorAlert, Loading } from '../../components/ui';
 import { addDays, date, money, today } from '../../format';
+import { bookingsCsvName } from '../../admin';
 import { useAction, useLoad } from '../../hooks';
 import type { ReportSummary } from '../../types';
 
@@ -34,7 +35,7 @@ export default function Reports() {
           <button
             className="primary"
             disabled={exporter.busy}
-            onClick={() => exporter.run(() => download(`/admin/reports/bookings.csv?from=${from}&to=${to}`, `bookings-${from}-${to}.csv`))}
+            onClick={() => exporter.run(() => download(`/admin/reports/bookings.csv?from=${from}&to=${to}`, bookingsCsvName(from, to)))}
           >
             {exporter.busy ? 'Exporting…' : 'Export bookings CSV'}
           </button>

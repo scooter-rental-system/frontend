@@ -13,6 +13,7 @@ const EMPTY_SCOOTER = {
   model: '',
   plateNumber: '',
   engineCc: '',
+  dailyRate: '',
   hourlyRate: '',
   perKmRate: '',
   totalMileage: '0',
@@ -121,7 +122,10 @@ export function Fleet() {
                 <th scope="col">Plate</th>
                 <th scope="col">Status</th>
                 <th scope="col" className="num">
-                  Per hour
+                  Per day
+                </th>
+                <th scope="col" className="num">
+                  Extra hour
                 </th>
                 <th scope="col" className="num">
                   Per km
@@ -153,7 +157,10 @@ export function Fleet() {
                   <td data-label="Status">
                     {s.deleted ? <span className="badge red">Removed</span> : <StatusBadge status={s.status} />}
                   </td>
-                  <td data-label="Per hour" className="num">
+                  <td data-label="Per day" className="num">
+                    {money(s.dailyRate)}
+                  </td>
+                  <td data-label="Extra hour" className="num">
                     {money(s.hourlyRate)}
                   </td>
                   <td data-label="Per km" className="num">
@@ -209,6 +216,7 @@ function ScooterForm({ scooter, onDone, onCancel }: { scooter: Scooter | null; o
           model: scooter.model,
           plateNumber: scooter.plateNumber,
           engineCc: String(scooter.engineCc ?? ''),
+          dailyRate: String(scooter.dailyRate),
           hourlyRate: String(scooter.hourlyRate),
           perKmRate: String(scooter.perKmRate),
           totalMileage: String(scooter.totalMileage),
@@ -224,6 +232,7 @@ function ScooterForm({ scooter, onDone, onCancel }: { scooter: Scooter | null; o
     const body = {
       ...f,
       engineCc: f.engineCc ? Number(f.engineCc) : null,
+      dailyRate: Number(f.dailyRate),
       hourlyRate: Number(f.hourlyRate),
       perKmRate: Number(f.perKmRate),
       totalMileage: Number(f.totalMileage),
@@ -275,8 +284,22 @@ function ScooterForm({ scooter, onDone, onCancel }: { scooter: Scooter | null; o
             <legend>Rates &amp; odometer</legend>
             <div className="form-grid">
               <label>
-                Hourly rate (LKR)
-                <input type="number" min="0" step="0.01" value={f.hourlyRate} onChange={set('hourlyRate')} />
+                Daily rate (LKR)
+                <input type="number" min="0" step="0.01" value={f.dailyRate} onChange={set('dailyRate')} />
+              </label>
+              <label>
+                Extra-hour rate (LKR)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={f.hourlyRate}
+                  onChange={set('hourlyRate')}
+                  aria-describedby="extra-hour-hint"
+                />
+                <span id="extra-hour-hint" className="field-hint">
+                  For up to 8 hours after the full days; more than 8 hours is charged as another day.
+                </span>
               </label>
               <label>
                 Per-km rate (LKR)

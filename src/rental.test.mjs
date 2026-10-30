@@ -193,7 +193,9 @@ describe('booking detail', () => {
   it('keeps the cancel, end-rental and ownership rules', () => {
     assert.match(detail, /const isOwner = user\?\.id === b\.customer\.id;/);
     assert.match(detail, /const canCancel = b\.stage === 'AWAITING_PAYMENT' \|\| b\.stage === 'PAYMENT_FAILED' \|\| b\.stage === 'UPCOMING';/);
-    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\);/);
+    // A viva demo rental (no payment record) is ended only by the admin demo controls.
+    assert.match(detail, /const demoRental = isDemoRental\(b\);/);
+    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\) && !demoRental;/);
     // Phase 6: the accessible dialog replaced window.confirm; the cancel message and the "no" path are unchanged.
     assert.match(detail, /const ok = await confirm\(\{\s*title: 'Cancel booking\?',\s*message: msg,/);
     assert.match(detail, /if \(!ok\) return;\s*if \(await cancel\.run\(/);
@@ -211,7 +213,7 @@ describe('booking detail', () => {
     assert.match(detail, /<header className="card booking-header">/);
     assert.match(detail, /<h1>\{b\.reference\}<\/h1>/);
     assert.match(detail, /<StageBadge stage=\{b\.stage\} status=\{b\.status\} \/>/);
-    assert.match(detail, /\{STAGE_HELP\[b\.stage\]\}/);
+    assert.match(detail, /\{demoRental \? DEMO_RENTAL_NOTE : STAGE_HELP\[b\.stage\]\}/);
     assert.match(detail, /<BookingTimeline stage=\{b\.stage\} \/>/);
   });
 

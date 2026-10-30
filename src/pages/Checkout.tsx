@@ -2,13 +2,28 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { StripePayment } from '../components/StripePayment';
+import { ReceiptUpload, TransferInstructions } from '../components/TransferPay';
 import { ErrorAlert, Loading } from '../components/ui';
+import { METHOD_LABEL, type CheckoutMethod } from '../cash';
 import { checkoutStep } from '../checkout';
 import { date, dateTime, money } from '../format';
 import { useAction, useLoad } from '../hooks';
-import type { Booking, Contract, PaymentIntent } from '../types';
+import { bookingPath } from '../routes';
+import { DISTANCE_PRICING_RULE, GEAR_PRICING_RULE, INCLUDED_KM_PER_DAY, SCOOTER_PRICING_RULE } from '../pricing';
+import {
+  chooseTransferPath,
+  isTransferMethod,
+  latestReceipt,
+  offeredTransfers,
+  PAYMENT_OPTIONS_PATH,
+  pendingReceipt,
+  RECEIPT_WAITING,
+  verificationHoldNote,
+} from '../transfers';
+import type { Booking, Contract, PaymentIntent, PaymentOptions } from '../types';
 
 export default function Checkout() {
   const { id = '' } = useParams();
@@ -17,10 +32,16 @@ export default function Checkout() {
   const { user } = useAuth();
   const booking = useLoad(() => api.get<Booking>(bookingApi), [id]);
   const contract = useLoad(() => api.get<Contract>(`${bookingApi}/contract`), [id]);
+  // The QR and bank transfer details an administrator enabled (only those are offered).
+  const options = useLoad(() => api.get<PaymentOptions>(PAYMENT_OPTIONS_PATH), []);
 
   const [signedName, setSignedName] = useState('');
   const [agree, setAgree] = useState(false);
   const sign = useAction();
+  // Card goes through the payment provider; QR Pay and Bank Transfer are approved by an admin from the receipt.
+  // Cash is not offered: only an admin records cash, when the customer pays at the rental counter.
+  const [chosen, setChosen] = useState<CheckoutMethod | null>(null);
+  const chooseTransfer = useAction();
 
   if (booking.loading || contract.loading) return <Loading />;
   if (!booking.data || !contract.data) return <ErrorAlert error={booking.error ?? contract.error} />;
@@ -45,8 +66,25 @@ export default function Checkout() {
     if (res) contract.setData(res);
   };
 
+  const pendingMethod = b.payment?.status === 'PENDING' ? b.payment.method : null;
+  const method: CheckoutMethod = chosen ?? (isTransferMethod(pendingMethod) ? pendingMethod : 'CARD');
+  // QR Pay and Bank Transfer appear only while enabled (or already chosen for this booking).
+  const transferChoices = offeredTransfers(options.data);
+  if (isTransferMethod(pendingMethod) && !transferChoices.includes(pendingMethod)) transferChoices.push(pendingMethod);
+  const waiting = pendingReceipt(b.payment?.receipts);
+  const lastReceipt = latestReceipt(b.payment?.receipts, 'INITIAL');
+  // The transfer is made outside this app; the receipt only waits for an administrator to verify it.
+  const recordTransfer = async () => {
+    if (!isTransferMethod(method)) return false;
+    if (b.payment?.method === method && b.payment.status === 'PENDING') return true;
+    const res = await chooseTransfer.run(() => api.post<Booking>(chooseTransferPath(b.id), { method }));
+    if (res) booking.setData(res);
+    return !!res;
+  };
+
   return (
     <div className="booking-page">
+      <BackLink fallback={bookingPath(b.id)} label="Booking details" />
       <div className="page-header">
         <span className="eyebrow">Secure checkout · {b.reference}</span>
         <p className="checkout-heading">
@@ -108,9 +146,36 @@ export default function Checkout() {
               <span className={`badge ${c.signed ? 'blue' : ''}`}>{c.signed ? 'Ready to pay' : 'Locked'}</span>
             </div>
             <div className="checkout-amount">
-              <span className="muted">Amount due now</span>
+              <span className="muted">Pay now</span>
               <strong className="price">{money(b.initialCharge)}</strong>
             </div>
+            <fieldset className="payment-methods" disabled={!c.signed}>
+              <legend>Payment method</legend>
+              {(['CARD'] as const).map((m) => (
+                <label key={m} className={`payment-method${method === m ? ' is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value={m}
+                    checked={method === m}
+                    onChange={() => setChosen(m)}
+                  />
+                  {METHOD_LABEL[m]}
+                </label>
+              ))}
+              {transferChoices.map((m) => (
+                <label key={m} className={`payment-method${method === m ? ' is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value={m}
+                    checked={method === m}
+                    onChange={() => setChosen(m)}
+                  />
+                  {METHOD_LABEL[m]}
+                </label>
+              ))}
+            </fieldset>
             {b.stage === 'PAYMENT_FAILED' && b.payment?.failureReason && (
               <div className="alert" role="alert">
                 Last attempt failed: {b.payment.failureReason}
@@ -121,30 +186,77 @@ export default function Checkout() {
                 <span aria-hidden>🔒</span> Sign the rental agreement above to unlock payment.
               </p>
             )}
-            <div className="stripe-container">
-              <StripePayment
-                bookingId={b.id}
-                purpose="initial"
-                amount={b.initialCharge}
-                disabled={!c.signed}
-                billingName={user?.fullName}
-                billingEmail={user?.email}
-                createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/payment-intent`)}
-                reload={() => api.get<Booking>(`/bookings/${b.id}`)}
-                onSettled={() => navigate(`/bookings/${b.id}?paid=1`)}
-              />
-            </div>
-            {c.signed && (
-              <p className="muted small">
-                Your booking is confirmed once Stripe tells us the payment succeeded. This page waits for that
-                confirmation before moving on.
-              </p>
+            {isTransferMethod(method) && c.signed && (
+              <div className="stack">
+                {waiting ? (
+                  <>
+                    <div className="alert info" role="status">
+                      {RECEIPT_WAITING}
+                    </div>
+                    <p className="muted small">
+                      Your booking is confirmed once an administrator verifies that {money(waiting.amount)} reached our
+                      account.
+                    </p>
+                    <Link to={`/bookings/${b.id}`} className="btn primary checkout-task__action">
+                      View booking
+                    </Link>
+                  </>
+                ) : options.data ? (
+                  <>
+                    {lastReceipt?.status === 'REJECTED' && (
+                      <div className="alert" role="alert">
+                        Your last receipt was not accepted: {lastReceipt.rejectionReason}. Please upload a new receipt.
+                      </div>
+                    )}
+                    <TransferInstructions
+                      method={method}
+                      options={options.data}
+                      amount={b.initialCharge}
+                      reference={b.reference}
+                    />
+                    <p className="muted small">{verificationHoldNote(options.data)}</p>
+                    <ErrorAlert error={chooseTransfer.error} />
+                    <ReceiptUpload
+                      booking={b}
+                      method={method}
+                      sendMethod={false}
+                      prepare={recordTransfer}
+                      onSubmitted={booking.setData}
+                    />
+                  </>
+                ) : (
+                  <ErrorAlert error={options.error} />
+                )}
+              </div>
             )}
-            <ul className="checkout-trust" aria-label="About this payment">
-              <li>Processed by Stripe</li>
-              <li>Card details never reach our servers</li>
-              <li>Booked only once the payment succeeds</li>
-            </ul>
+            {method === 'CARD' && (
+              <>
+                <div className="stripe-container">
+                  <StripePayment
+                    bookingId={b.id}
+                    purpose="initial"
+                    amount={b.initialCharge}
+                    disabled={!c.signed}
+                    billingName={user?.fullName}
+                    billingEmail={user?.email}
+                    createIntent={() => api.post<PaymentIntent>(`/bookings/${b.id}/payment-intent`)}
+                    reload={() => api.get<Booking>(`/bookings/${b.id}`)}
+                    onSettled={() => navigate(`/bookings/${b.id}?paid=1`)}
+                  />
+                </div>
+                {c.signed && (
+                  <p className="muted small">
+                    Your booking is confirmed once Stripe tells us the payment succeeded. This page waits for that
+                    confirmation before moving on.
+                  </p>
+                )}
+                <ul className="checkout-trust" aria-label="About this payment">
+                  <li>Processed by Stripe</li>
+                  <li>Card details never reach our servers</li>
+                  <li>Booked only once the payment succeeds</li>
+                </ul>
+              </>
+            )}
           </section>
         </div>
 
@@ -164,12 +276,23 @@ export default function Checkout() {
               <dd>{b.pickupLocation}</dd>
             </div>
           </dl>
-          <dl className="summary-lines">
+          <h3 className="summary-subtitle">Rates</h3>
+          <dl className="summary-lines summary-rates">
             <div className="summary-line">
-              <dt>Scooter</dt>
-              <dd className="num">
-                {money(b.scooter.hourlyRate)}/hour + {money(b.scooter.perKmRate)}/km
-              </dd>
+              <dt>Daily rate</dt>
+              <dd className="num">{money(b.scooter.dailyRate)}</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Extra-hour rate</dt>
+              <dd className="num">{money(b.scooter.hourlyRate)}</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Excess-distance rate</dt>
+              <dd className="num">{money(b.scooter.perKmRate)}/km</dd>
+            </div>
+            <div className="summary-line">
+              <dt>Included distance</dt>
+              <dd>{INCLUDED_KM_PER_DAY} km per charged rental day</dd>
             </div>
             {b.gear.map((g) => (
               <div key={g.gearItemId} className="summary-line">
@@ -179,16 +302,60 @@ export default function Checkout() {
                 <dd className="num">{money(g.dailyRate * g.quantity)}/day</dd>
               </div>
             ))}
+          </dl>
+
+          <h3 className="summary-subtitle">Pay now</h3>
+          <dl className="summary-lines">
+            <div className="summary-line">
+              <dt>One-hour minimum</dt>
+              <dd className="num">{money(b.scooter.hourlyRate)}</dd>
+            </div>
+            {b.gear.map((g) => (
+              <div key={g.gearItemId} className="summary-line">
+                <dt>
+                  {g.name} × {g.quantity}, first day
+                </dt>
+                <dd className="num">{money(g.dailyRate * g.quantity)}</dd>
+              </div>
+            ))}
             <div className="summary-line summary-line--total">
               <dt>Pay now</dt>
               <dd className="num">{money(b.initialCharge)}</dd>
             </div>
           </dl>
-          <p className="muted small">
-            Pay now covers 1 hour and 1 day of gear. When you end the rental, the total for every started hour, the
-            kilometres from the GPS log and each started day of gear is calculated, and the balance is charged to the
-            same card.
+          <p className="small">
+            Pay now covers the one-hour minimum{b.gear.length > 0 && ' and the first day of your camping gear'}. Your
+            final rental charge is calculated when the rental ends using rental time, excess distance and any camping
+            gear.
           </p>
+
+          <dl className="summary-facts summary-stages small">
+            <div>
+              <dt>Pay now</dt>
+              <dd>
+                {money(b.initialCharge)},{' '}
+                {isTransferMethod(method)
+                  ? 'transferred by you, and confirmed once an administrator verifies your receipt.'
+                  : 'charged when you pay below.'}
+              </dd>
+            </div>
+            <div>
+              <dt>Final total</dt>
+              <dd>Not known yet: the rental has no fixed end. It is calculated when you end the rental.</dd>
+            </div>
+            <div>
+              <dt>Balance</dt>
+              <dd>
+                {isTransferMethod(method)
+                  ? 'Final total minus pay now, transferred when the rental ends with a new receipt or paid at the rental counter (any excess is refunded to you by our team).'
+                  : 'Final total minus pay now, charged to the same card when the rental ends (any excess is refunded).'}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="muted small">{SCOOTER_PRICING_RULE}</p>
+          <p className="muted small">{DISTANCE_PRICING_RULE}</p>
+          {b.gear.length > 0 && <p className="muted small">{GEAR_PRICING_RULE}</p>}
         </aside>
       </div>
     </div>

@@ -214,7 +214,7 @@ describe('project metadata', () => {
   });
 
   it('accepts every payment method the backend can return', () => {
-    assert.match(read('types.ts'), /method: 'CARD' \| 'ONLINE' \| 'CASH';/);
+    assert.match(read('types.ts'), /method: 'CARD' \| 'ONLINE' \| 'CASH' \| 'QR_TRANSFER' \| 'BANK_TRANSFER';/);
   });
 
   it('keeps type-only packages out of the runtime dependencies', () => {

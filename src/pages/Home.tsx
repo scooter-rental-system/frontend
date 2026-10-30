@@ -4,6 +4,7 @@ import { api } from '../api';
 import { ScooterCard, ScooterCardSkeleton } from '../components/ScooterCard';
 import { ErrorAlert, LoadError, ScooterIllustration } from '../components/ui';
 import { Discovery, discover, discoveryParams, isFiltered, NO_FILTERS, parseDiscovery, resultSummary, SORT_OPTIONS, SortKey } from '../discovery';
+import { PricingInfo } from '../components/PricingInfo';
 import { humanize, money } from '../format';
 import { useLoad } from '../hooks';
 import type { GearItem, Scooter } from '../types';
@@ -195,6 +196,11 @@ export default function Home() {
           ))}
         </ol>
       </section>
+
+      {/* The rules only: each scooter's own rates are on its card and its booking page. */}
+      <div className="card" id="pricing">
+        <PricingInfo />
+      </div>
 
       {(gear.error || (gear.data && gear.data.length > 0)) && (
         <section className="stack" aria-labelledby={ids.gear}>

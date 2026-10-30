@@ -3,13 +3,26 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api';
 import { filterPayments, initials, PAYMENT_FILTERS, PAYMENT_TONE, paymentCounts, type PaymentFilter } from '../../admin';
 import InvoiceView from '../../components/InvoiceView';
+import { ReceiptReview } from '../../components/ReceiptReview';
 import { Empty, ErrorAlert, Loading, StatusBadge } from '../../components/ui';
 import { date, dateTime, humanize, money } from '../../format';
 import { useAction, useLoad } from '../../hooks';
 import { paymentSetup, PAYMENTS_UNAVAILABLE, stripeMode } from '../../payments';
 import { adminBookingPath } from '../../routes';
 import { loadPaymentConfig } from '../../stripe';
-import type { Invoice, Payment } from '../../types';
+import {
+  ADMIN_RECEIPTS_PATH,
+  filterReceipts,
+  invoiceStatus,
+  matchesMethodFilter,
+  METHOD_FILTERS,
+  PAYMENT_METHOD_LABEL,
+  paymentMethodsLabel,
+  RECEIPT_FILTERS,
+  type MethodFilter,
+  type ReceiptFilter,
+} from '../../transfers';
+import type { AdminReceipt, Invoice, Payment } from '../../types';
 
 /** The card payment provider as the backend reports it (GET /api/payments/config); no keys are shown. */
 function PaymentProviderStatus() {
@@ -19,7 +32,9 @@ function PaymentProviderStatus() {
   if (!setup.ready) {
     return (
       <div className="alert small" role="status">
-        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay for bookings.
+        {PAYMENTS_UNAVAILABLE} No payment provider is configured, so customers cannot pay by card. QR payments and
+        bank transfers are still available when they are enabled under Payment settings, and a final balance paid in
+        cash at the rental counter is still recorded on each booking.
       </div>
     );
   }
@@ -34,9 +49,12 @@ function PaymentProviderStatus() {
 }
 
 export default function Billing() {
-  const [tab, setTab] = useState<'payments' | 'invoices'>('payments');
+  const [tab, setTab] = useState<'receipts' | 'payments' | 'invoices'>('receipts');
   const [filter, setFilter] = useState<PaymentFilter>('ALL');
+  const [methodFilter, setMethodFilter] = useState<MethodFilter>('ALL');
+  const [receiptFilter, setReceiptFilter] = useState<ReceiptFilter>('PENDING_VERIFICATION');
   const payments = useLoad(() => api.get<Payment[]>('/admin/payments'));
+  const receipts = useLoad(() => api.get<AdminReceipt[]>(ADMIN_RECEIPTS_PATH));
   const invoices = useLoad(() => api.get<Invoice[]>('/admin/invoices'));
   const [open, setOpen] = useState<Invoice | null>(null);
   const action = useAction();
@@ -47,7 +65,14 @@ export default function Billing() {
   };
 
   const counts = paymentCounts(payments.data ?? []);
-  const shown = filterPayments(payments.data ?? [], filter);
+  const shown = filterPayments(payments.data ?? [], filter).filter((p) => matchesMethodFilter(p, methodFilter));
+  const shownReceipts = filterReceipts(receipts.data ?? [], receiptFilter);
+  const waiting = filterReceipts(receipts.data ?? [], 'PENDING_VERIFICATION').length;
+  // A receipt decision changes the payment too.
+  const reviewed = () => {
+    receipts.reload();
+    payments.reload();
+  };
 
   return (
     <div className="admin-page">
@@ -57,12 +82,18 @@ export default function Billing() {
           <h1>
             Payments <span className="accent-text">&amp; billing</span>
           </h1>
-          <p className="muted">Card payments taken through Stripe, and the invoices issued for each booking.</p>
+          <p className="muted">
+            Card payments through Stripe, QR payments and bank transfers to verify, cash at the counter, and the invoices
+            issued for each booking.
+          </p>
         </div>
       </div>
       <PaymentProviderStatus />
 
       <div className="segmented" role="group" aria-label="Show">
+        <button type="button" aria-pressed={tab === 'receipts'} onClick={() => setTab('receipts')}>
+          Transfers to verify <span className="count">({waiting})</span>
+        </button>
         <button type="button" aria-pressed={tab === 'payments'} onClick={() => setTab('payments')}>
           Payments
         </button>
@@ -70,7 +101,7 @@ export default function Billing() {
           Invoices
         </button>
       </div>
-      <ErrorAlert error={payments.error ?? invoices.error ?? action.error} />
+      <ErrorAlert error={payments.error ?? receipts.error ?? invoices.error ?? action.error} />
       {open && (
         <div className="stack">
           <InvoiceView invoice={open} />
@@ -78,6 +109,36 @@ export default function Billing() {
             <button onClick={() => setOpen(null)}>Close invoice</button>
           </div>
         </div>
+      )}
+
+      {tab === 'receipts' && (
+        <section className="stack" aria-labelledby="receipts-title">
+          <h2 id="receipts-title" className="sr-only">
+            QR payment and bank transfer receipts
+          </h2>
+          <div className="segmented" role="group" aria-label="Receipt status">
+            {RECEIPT_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                className="small"
+                aria-pressed={receiptFilter === f.value}
+                onClick={() => setReceiptFilter(f.value)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {receipts.loading && <Loading />}
+          {receipts.data && shownReceipts.length === 0 && (
+            <Empty>
+              {receiptFilter === 'PENDING_VERIFICATION' ? 'No receipts are waiting for verification.' : 'No receipts.'}
+            </Empty>
+          )}
+          {shownReceipts.map((r) => (
+            <ReceiptReview key={r.id} receipt={r} onChanged={reviewed} />
+          ))}
+        </section>
       )}
 
       {tab === 'payments' && (
@@ -98,8 +159,21 @@ export default function Billing() {
               </button>
             ))}
           </div>
+          <div className="segmented" role="group" aria-label="Payment method">
+            {METHOD_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                className="small"
+                aria-pressed={methodFilter === f.value}
+                onClick={() => setMethodFilter(f.value)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           {payments.loading && <Loading />}
-          {payments.data && shown.length === 0 && <Empty>No payments with this status.</Empty>}
+          {payments.data && shown.length === 0 && <Empty>No payments match these filters.</Empty>}
           {shown.length > 0 && (
             <div className="table-wrap">
               <table className="admin-table">
@@ -131,13 +205,15 @@ export default function Billing() {
                       </td>
                       <td data-label="Paid">{p.paidAt ? dateTime(p.paidAt) : <span className="muted">not paid</span>}</td>
                       <td data-label="Method">
-                        {p.method.toLowerCase()}
+                        {p.paymentMethods.length > 1 ? paymentMethodsLabel(p.paymentMethods) : PAYMENT_METHOD_LABEL[p.method]}
                         {p.cardLast4 && <span className="cell-sub">card ending {p.cardLast4}</span>}
+                        {p.method === 'CASH' && <span className="cell-sub">at the rental counter</span>}
                       </td>
                       <td data-label="Status">
                         <span className="row">
                           <span className={`badge ${PAYMENT_TONE[p.status]}`}>{humanize(p.status)}</span>
                           {p.balanceDue != null && <span className="badge red">Due {money(p.balanceDue)}</span>}
+                          {p.refundDue != null && <span className="badge amber">Refund due {money(p.refundDue)}</span>}
                         </span>
                         {p.failureReason && <span className="cell-sub">{p.failureReason}</span>}
                       </td>
@@ -197,9 +273,7 @@ export default function Billing() {
                       <td data-label="Customer">{inv.customerName}</td>
                       <td data-label="Kind">{inv.kind.toLowerCase()}</td>
                       <td data-label="Status">
-                        {(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status) && (
-                          <StatusBadge status={(inv.kind === 'FINAL' ? inv.paymentStatus : inv.status)!} />
-                        )}
+                        {invoiceStatus(inv) && <StatusBadge status={invoiceStatus(inv)!} />}
                       </td>
                       <td data-label="Total" className="num">
                         {money(inv.total)}

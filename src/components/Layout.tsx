@@ -8,6 +8,7 @@ import { isAdmin } from '../types';
 import { NotificationBell } from './NotificationBell';
 import { AdminIcon } from './AdminIcon';
 import { BrandMark } from './ui';
+import { DemoBanner } from './DemoMode';
 
 const BRAND_NAME = 'Scooter Rent Kandy';
 
@@ -199,6 +200,7 @@ export function Layout() {
         </div>
       </header>
 
+      <DemoBanner />
       <main id="main" className="container" tabIndex={-1}>
         <Outlet />
       </main>
@@ -422,6 +424,7 @@ export function AdminLayout() {
             </button>
           </div>
         </header>
+        <DemoBanner />
         <main id="main" className="admin-content" tabIndex={-1}>
           <Outlet />
         </main>

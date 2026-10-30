@@ -19,7 +19,8 @@ export type AdminIconName =
   | 'billing'
   | 'notifications'
   | 'plus'
-  | 'back';
+  | 'back'
+  | 'profile';
 
 export interface AdminLink {
   to: string;
@@ -54,14 +55,22 @@ export const ADMIN_NAV: AdminGroup[] = [
     links: [
       { to: '/admin/gps', label: 'Live GPS', icon: 'gps' },
       { to: '/admin/maintenance', label: 'Maintenance', icon: 'maintenance' },
+      { to: '/admin/repairs', label: 'Repairs & breakdowns', icon: 'maintenance' },
     ],
   },
   { title: 'Customers', links: [{ to: '/admin/customers', label: 'Customers', icon: 'customers' }] },
-  { title: 'Finance', links: [{ to: '/admin/billing', label: 'Payments & billing', icon: 'billing' }] },
+  {
+    title: 'Finance',
+    links: [
+      { to: '/admin/billing', label: 'Payments & billing', icon: 'billing' },
+      { to: '/admin/payment-settings', label: 'Payment settings', icon: 'billing' },
+    ],
+  },
   {
     title: 'Communication',
     links: [{ to: '/admin/notifications', label: 'Notifications', icon: 'notifications' }],
   },
+  { title: 'Account', links: [{ to: '/admin/profile', label: 'My profile', icon: 'profile' }] },
 ];
 
 /** The link for the current path: the most specific prefix (so /admin/bookings/123 is "Bookings"). */
@@ -185,4 +194,9 @@ export function gpsCounts(positions: readonly LivePosition[]) {
     stale: located.filter((p) => p.stale).length,
     onRental: positions.filter((p) => p.activeBookingReference).length,
   };
+}
+
+/** The same name the backend gives the bookings CSV: one day, or a from-to range. */
+export function bookingsCsvName(from: string, to: string): string {
+  return from === to ? `bookings-${from}.csv` : `bookings-${from}-to-${to}.csv`;
 }

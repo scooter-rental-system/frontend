@@ -12,6 +12,7 @@ import {
   interpretConfirmation,
   interpretRedirectStatus,
   isSettled,
+  CUSTOMER_PAYMENTS_UNAVAILABLE,
   PAYMENTS_UNAVAILABLE,
   paymentSetup,
   returnUrl,
@@ -70,9 +71,13 @@ describe('paymentSetup', () => {
       null,
       undefined,
     ]) {
-      assert.deepEqual(paymentSetup(config), { ready: false, message: PAYMENTS_UNAVAILABLE });
+      assert.deepEqual(paymentSetup(config), { ready: false, message: CUSTOMER_PAYMENTS_UNAVAILABLE });
     }
     assert.equal(PAYMENTS_UNAVAILABLE, 'Payments are currently unavailable.');
+    assert.equal(
+      CUSTOMER_PAYMENTS_UNAVAILABLE,
+      'Card payment is temporarily unavailable. Please try again after payment service configuration is complete.',
+    );
   });
 
   it('tells test and live keys apart for the admin page', () => {

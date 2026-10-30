@@ -64,7 +64,9 @@ describe('accessible confirmation dialog', () => {
   it('keeps the booking actions behind the same conditions and API calls', () => {
     const detail = read('pages', 'BookingDetail.tsx');
     assert.match(detail, /const canCancel = b\.stage === 'AWAITING_PAYMENT' \|\| b\.stage === 'PAYMENT_FAILED' \|\| b\.stage === 'UPCOMING';/);
-    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\);/);
+    // A viva demo rental (no payment record) is ended only by the admin demo controls.
+    assert.match(detail, /const demoRental = isDemoRental\(b\);/);
+    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\) && !demoRental;/);
     assert.match(detail, /api\.post<Booking>\(`\$\{bookingApi\}\/cancel`\)/);
     assert.match(detail, /if \(!ok\) return;\s*await end\.run\(\(\) => api\.put<Booking>\(`\$\{bookingApi\}\/complete`, \{\}\)\);/);
   });
@@ -111,11 +113,11 @@ describe('Figma-aligned public pages', () => {
     assert.match(card, /<div className="scooter-card__media">\s*<ScooterThumb[^>]*\/>\s*<span className=\{`badge \$\{availability\.tone\}`\}>\{availability\.label\}<\/span>/);
   });
 
-  it('gives Login and Register the brand panel without unsupported sign-in options', () => {
+  it('gives Login, Register, Forgot password and Reset password the brand panel without unsupported sign-in options', () => {
     const auth = read('pages', 'Auth.tsx');
-    assert.equal((auth.match(/<AuthAside /g) ?? []).length, 2);
+    assert.equal((auth.match(/<AuthAside /g) ?? []).length, 4);
     assert.match(auth, /<aside className="auth-aside" aria-label="About Scooter Rent Kandy">/);
-    assert.doesNotMatch(auth, /google|two-factor|otp|forgot password/i);
+    assert.doesNotMatch(auth, /google|two-factor|\botp\b/i);
     assert.match(auth, /<form className="auth-form" onSubmit=\{submit\} noValidate id="login-form">/);
     assert.match(auth, /<form className="auth-form" onSubmit=\{submit\} noValidate id="register-form">/);
   });
