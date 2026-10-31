@@ -156,6 +156,22 @@ export default function BookingDetail() {
     }, 15_000);
     return () => clearInterval(timer);
   }, [settling, bookingApi, setBooking, setInvoices]);
+  // Repair reports are often resolved on the Repairs page in another tab: read them again from the server whenever
+  // this page is shown again, so only their saved status decides whether the rental can be ended.
+  const { setData: setRepairs } = repairs;
+  useEffect(() => {
+    const reloadRepairs = () => {
+      if (document.visibilityState === 'visible') {
+        api.get<RepairReport[]>(`${bookingApi}/repairs`).then(setRepairs, () => {});
+      }
+    };
+    document.addEventListener('visibilitychange', reloadRepairs);
+    window.addEventListener('focus', reloadRepairs);
+    return () => {
+      document.removeEventListener('visibilitychange', reloadRepairs);
+      window.removeEventListener('focus', reloadRepairs);
+    };
+  }, [bookingApi, setRepairs]);
   const cancel = useAction();
   const end = useAction();
   const { confirm, dialog } = useConfirm();

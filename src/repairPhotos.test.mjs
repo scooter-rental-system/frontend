@@ -132,7 +132,7 @@ describe('claimed versus approved amounts', () => {
       assert.equal(isRupeeAmount(bad), false, bad);
     }
     assert.match(repairReportProblem('x', true, '12.345'), /number of rupees/);
-    assert.match(admin, /if \(approved\.trim\(\) !== '' && !isRupeeAmount\(approved\)\)/);
+    assert.match(admin, /if \(approved !== '' && !isRupeeAmount\(approved\)\)/);
   });
 });
 

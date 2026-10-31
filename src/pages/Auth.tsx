@@ -8,6 +8,7 @@ import {
   confirmPasswordError, emailError, forgotFailure, MISSING_TOKEN, newPasswordError, REQUEST_ACCEPTED, RESET_DONE,
   resetFailure, resetTokenFrom,
 } from '../passwordReset';
+import { SESSION_ENDED_MESSAGE } from '../authNotice';
 import { consentError, nicError } from '../registration';
 import type { RegisterFormData, RegisterFormUI } from '../types';
 import { isAdmin } from '../types';
@@ -93,7 +94,7 @@ function useRedirectTarget(fallback: string) {
  *   • Redirects to the original page (or /admin for admin users) on success
  */
 export function Login() {
-  const { login } = useAuth();
+  const { login, sessionEnded } = useAuth();
   const navigate  = useNavigate();
   const target    = useRedirectTarget('/');
 
@@ -136,6 +137,12 @@ export function Login() {
           <h1 className="auth-title">Welcome back</h1>
           <p className="auth-subtitle">Sign in to your account to continue</p>
         </div>
+
+        {sessionEnded && (
+          <div className="alert warning" role="alert" id="session-ended">
+            {SESSION_ENDED_MESSAGE}
+          </div>
+        )}
 
         {/* Form */}
         <form className="auth-form" onSubmit={submit} noValidate id="login-form">

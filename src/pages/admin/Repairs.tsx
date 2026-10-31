@@ -7,6 +7,7 @@ import { useAction, useLoad } from '../../hooks';
 import { RepairPhotos } from '../../components/RepairPhotos';
 import {
   APPROVAL_HELP, isRupeeAmount, REPAIR_STATUS_LABEL, REPAIR_STATUS_TONE, REPAIR_STATUSES, reimbursementNote,
+  repairReviewBody, RESOLVE_TO_BILL, savedReviewMessage,
 } from '../../repairs';
 import { adminBookingPath } from '../../routes';
 import type { RepairReport, RepairStatus } from '../../types';
@@ -15,10 +16,21 @@ import type { RepairReport, RepairStatus } from '../../types';
  * Repair and breakdown reports from riders, with any photos they attached. Admins set the status, add a note and, for
  * a repair the customer arranged themselves, record the approved reimbursement, which is deducted from the rental's
  * final bill once the report is Resolved. Saving moves no money by itself.
+ *
+ * The saved report is the only source of truth: Save review sends what the form shows, and the server's answer
+ * replaces the report in the list (badge, form and messages all come from it), so nothing unsaved is ever shown as
+ * saved.
  */
 export default function Repairs() {
   const list = useLoad(() => api.get<RepairReport[]>('/admin/repairs'));
+  // The status each report was saved with, from the server's answer to its last Save review.
+  const [saved, setSaved] = useState<{ id: string; status: RepairStatus } | null>(null);
   const open = (list.data ?? []).filter((r) => r.status !== 'RESOLVED').length;
+
+  const onSaved = (updated: RepairReport) => {
+    list.setData((reports) => (reports ?? []).map((r) => (r.id === updated.id ? updated : r)));
+    setSaved({ id: updated.id, status: updated.status });
+  };
 
   return (
     <div className="admin-page">
@@ -51,7 +63,13 @@ export default function Repairs() {
       {list.data && list.data.length > 0 && (
         <ul className="repair-admin-list">
           {list.data.map((r) => (
-            <RepairItem key={r.id} report={r} onSaved={list.reload} />
+            // A new saved version (updatedAt) starts the form again from the saved values.
+            <RepairItem
+              key={`${r.id}@${r.updatedAt}`}
+              report={r}
+              savedStatus={saved?.id === r.id ? saved.status : null}
+              onSaved={onSaved}
+            />
           ))}
         </ul>
       )}
@@ -59,30 +77,35 @@ export default function Repairs() {
   );
 }
 
-function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () => void }) {
-  const [status, setStatus] = useState<RepairStatus>(r.status);
-  const [note, setNote] = useState(r.adminNote ?? '');
-  const [approved, setApproved] = useState(r.approvedAmount != null ? String(r.approvedAmount) : '');
-  const [saved, setSaved] = useState(false);
+function RepairItem({
+  report: r,
+  savedStatus,
+  onSaved,
+}: {
+  report: RepairReport;
+  /** The status the server saved on this page's last Save review of this report, or null. */
+  savedStatus: RepairStatus | null;
+  onSaved: (updated: RepairReport) => void;
+}) {
   const action = useAction();
   const prefix = `repair-${r.id}`;
 
-  const save = async (e: FormEvent) => {
+  const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaved(false);
-    if (approved.trim() !== '' && !isRupeeAmount(approved)) {
+    // Exactly what the form shows when Save review is clicked.
+    const form = new FormData(e.currentTarget);
+    const approved = String(form.get('approvedAmount') ?? '').trim();
+    if (approved !== '' && !isRupeeAmount(approved)) {
       action.setError('Enter the approved amount as rupees (at most two decimals), or leave it empty.');
       return;
     }
-    const amount = approved.trim() === '' ? null : Number(approved);
-    const body = { status, adminNote: note.trim() === '' ? null : note, approvedAmount: r.selfArranged ? amount : null };
-    const ok = await action.run(() =>
-      api.put<RepairReport>(`/admin/repairs/${encodeURIComponent(r.id)}`, body).then(() => true),
-    );
-    if (ok) {
-      setSaved(true);
-      onSaved();
+    const body = repairReviewBody(r.selfArranged, form.get('status'), approved, String(form.get('adminNote') ?? ''));
+    if (!body) {
+      action.setError('Choose a status.');
+      return;
     }
+    const updated = await action.run(() => api.put<RepairReport>(`/admin/repairs/${encodeURIComponent(r.id)}`, body));
+    if (updated) onSaved(updated);
   };
 
   return (
@@ -95,7 +118,9 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
             {r.customerPhone && <> · {r.customerPhone}</>} · reported {dateTime(r.reportedAt)}
           </div>
         </div>
-        <span className={`badge ${REPAIR_STATUS_TONE[r.status]}`}>{REPAIR_STATUS_LABEL[r.status]}</span>
+        <span className={`badge ${REPAIR_STATUS_TONE[r.status]}`} id={`${prefix}-badge`}>
+          {REPAIR_STATUS_LABEL[r.status]}
+        </span>
       </div>
       <p className="repair-description">{r.description}</p>
       {r.selfArranged && (
@@ -105,12 +130,17 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
           {r.approvedAmount != null && <> · approved {money(r.approvedAmount)}. {reimbursementNote(r.status, r.approvedAmount)}</>}
         </p>
       )}
+      {r.selfArranged && r.status !== 'RESOLVED' && (
+        <div className="alert warning small" role="note">
+          {RESOLVE_TO_BILL}
+        </div>
+      )}
       <RepairPhotos reportId={r.id} photos={r.photos ?? []} showEmpty />
-      <form className="admin-form" onSubmit={save} aria-label={`Review ${r.bookingReference}`}>
+      <form className="admin-form" onSubmit={save} autoComplete="off" aria-label={`Review ${r.bookingReference}`}>
         <div className="form-grid">
           <label htmlFor={`${prefix}-status`}>
             Status
-            <select id={`${prefix}-status`} value={status} onChange={(e) => setStatus(e.target.value as RepairStatus)}>
+            <select id={`${prefix}-status`} name="status" defaultValue={r.status}>
               {REPAIR_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {REPAIR_STATUS_LABEL[s]}
@@ -123,11 +153,11 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
               Approved reimbursement (LKR)
               <input
                 id={`${prefix}-approved`}
+                name="approvedAmount"
                 type="number"
                 min="0"
                 step="0.01"
-                value={approved}
-                onChange={(e) => setApproved(e.target.value)}
+                defaultValue={r.approvedAmount != null ? String(r.approvedAmount) : ''}
                 aria-describedby={`${prefix}-approved-help`}
               />
               <span id={`${prefix}-approved-help`} className="field-hint">
@@ -138,12 +168,18 @@ function RepairItem({ report: r, onSaved }: { report: RepairReport; onSaved: () 
         </div>
         <label htmlFor={`${prefix}-note`}>
           Note to the customer
-          <textarea id={`${prefix}-note`} rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
+          <textarea
+            id={`${prefix}-note`}
+            name="adminNote"
+            rows={2}
+            maxLength={2000}
+            defaultValue={r.adminNote ?? ''}
+          />
         </label>
         <ErrorAlert error={action.error} />
-        {saved && (
-          <div className="alert success small" role="status">
-            Saved. The customer has been notified.
+        {savedStatus && (
+          <div className="alert success small" role="status" id={`${prefix}-saved`}>
+            {savedReviewMessage(r.selfArranged, savedStatus)}
           </div>
         )}
         <div className="admin-form__actions">
