@@ -152,8 +152,8 @@ describe('final invoice', () => {
     assert.match(detail, /<span className="badge amber">Not charged<\/span>/);
   });
 
-  it('labels the live estimate as before any reimbursement', () => {
-    assert.match(detail, /hint="Before any approved repair reimbursement"/);
+  it('labels the live estimate as before the odometer distance and any reimbursement', () => {
+    assert.match(detail, /hint="Time and gear; excess km from the odometer at return, less any approved repair reimbursement"/);
   });
 
   it('leaves the viva demo controls tested as before', () => {

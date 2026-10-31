@@ -212,7 +212,11 @@ describe('admin pages keep their behaviour', () => {
 
   it('keeps the booking actions and the admin booking links', () => {
     const bookings = page('Bookings.tsx');
-    assert.match(bookings, /api\.put\(`\/bookings\/\$\{encodeURIComponent\(b\.id\)\}\/complete`, \{\}\)/);
+    // Handover and return need an odometer reading, so the list links to the booking page instead of ending it.
+    assert.doesNotMatch(bookings, /\/complete`/);
+    assert.match(bookings, /b\.stage === 'READY_FOR_PICKUP' && !b\.handoverConfirmedAt && \(\s*<Link className="btn small primary" to=\{adminBookingPath\(b\.id\)\}>\s*Hand over/);
+    assert.match(bookings, /b\.stage === 'IN_PROGRESS' && \(\s*<Link className="btn small primary" to=\{adminBookingPath\(b\.id\)\}>\s*Return & end/);
+    assert.match(bookings, /'PENDING', 'READY_FOR_PICKUP', 'ACTIVE', 'COMPLETED', 'CANCELLED'/);
     assert.match(bookings, /api\.post\(`\/bookings\/\$\{encodeURIComponent\(b\.id\)\}\/cancel`\)/);
     assert.match(bookings, /await confirm\(\{/);
     assert.doesNotMatch(bookings, /window\.confirm/);

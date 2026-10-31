@@ -149,7 +149,8 @@ function RightNowCard({ kind, booking: b }: { kind: keyof typeof RIGHT_NOW_TITLE
         </h3>
         <p className="muted">{STAGE_HELP[b.stage]}</p>
         <p className="small">
-          {kind === 'riding' ? 'Started' : 'Starts'} {dateTime(b.startTime)} · {b.pickupLocation}
+          {b.actualStartTime ? `Started ${dateTime(b.actualStartTime)}` : `Pickup ${dateTime(b.startTime)}`} ·{' '}
+          {b.pickupLocation}
           {kind === 'balance' && b.payment?.balanceDue != null && <> · Balance due {money(b.payment.balanceDue)}</>}
         </p>
       </div>

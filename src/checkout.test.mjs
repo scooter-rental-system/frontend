@@ -42,7 +42,7 @@ describe('booking stepper', () => {
     assert.match(read('pages', 'Checkout.tsx'), /<BookingStepper current=\{checkoutStep\(c\.signed\)\} \/>/);
     assert.match(
       read('pages', 'BookingDetail.tsx'),
-      /\{params\.get\('paid'\) && b\.status === 'ACTIVE' && \(\s*<>\s*<BookingStepper current=\{3\} \/>/,
+      /\{params\.get\('paid'\) && b\.status === 'READY_FOR_PICKUP' && \(\s*<>\s*<BookingStepper current=\{3\} \/>/,
     );
   });
 });
@@ -112,7 +112,9 @@ describe('Stripe wrapper', () => {
   it('says the booking is confirmed only when the backend confirms the payment', () => {
     assert.match(checkout, /Your booking is confirmed once Stripe tells us the payment succeeded/);
     // The success message on return is gated on the backend status, not on the URL alone.
-    assert.match(read('pages', 'BookingDetail.tsx'), /params\.get\('paid'\) && b\.status === 'ACTIVE'/);
+    // Paid means ready for pickup: the rental itself starts later, at the handover and the customer's confirmation.
+    assert.match(read('pages', 'BookingDetail.tsx'), /params\.get\('paid'\) && b\.status === 'READY_FOR_PICKUP'/);
+    assert.match(read('pages', 'BookingDetail.tsx'), /Payment received\. Your scooter is ready for pickup!/);
   });
 });
 

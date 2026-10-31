@@ -18,6 +18,8 @@ export default function Dashboard() {
   const stats = useLoad(() => api.get<DashboardData>('/admin/dashboard'));
   const pending = useLoad(() => api.get<Booking[]>('/admin/bookings?status=PENDING'));
   const active = useLoad(() => api.get<Booking[]>('/admin/bookings?status=ACTIVE'));
+  // Paid and waiting for the handover and the customer's start.
+  const ready = useLoad(() => api.get<Booking[]>('/admin/bookings?status=READY_FOR_PICKUP'));
 
   if (stats.loading && !stats.data) return <Loading />;
   if (!stats.data) return <ErrorAlert error={stats.error} />;
@@ -25,7 +27,7 @@ export default function Dashboard() {
 
   const byStart = (a: Booking, b: Booking) => a.startTime.localeCompare(b.startTime);
   const awaitingPayment = [...(pending.data ?? [])].sort(byStart);
-  const upcoming = (active.data ?? []).filter((b) => b.stage === 'UPCOMING').sort(byStart);
+  const upcoming = [...(ready.data ?? []), ...(active.data ?? []).filter((b) => b.stage === 'UPCOMING')].sort(byStart);
   const inProgress = (active.data ?? []).filter((b) => b.stage === 'IN_PROGRESS').sort(byStart);
   const balanceDue = (active.data ?? []).filter((b) => b.stage === 'BALANCE_DUE').sort(byStart);
 
@@ -37,6 +39,7 @@ export default function Dashboard() {
     stats.reload();
     pending.reload();
     active.reload();
+    ready.reload();
   };
 
   return (
@@ -86,7 +89,7 @@ export default function Dashboard() {
           </div>
           <div className="queue-grid">
             <BookingQueue title="1. Awaiting payment" bookings={awaitingPayment} flag={paymentFlag} empty="No unpaid bookings." />
-            <BookingQueue title="2. Starting soon" bookings={upcoming} empty="No upcoming rentals." />
+            <BookingQueue title="2. Ready for pickup" bookings={upcoming} empty="No bookings waiting for pickup." />
             <BookingQueue title="3. On the road" bookings={inProgress} empty="No rentals in progress." />
             <BookingQueue title="4. Balance due" bookings={balanceDue} flag={dueFlag} empty="No balances due." />
           </div>

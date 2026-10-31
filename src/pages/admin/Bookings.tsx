@@ -10,7 +10,7 @@ import { useConfirm } from '../../useConfirm';
 import { adminBookingPath } from '../../routes';
 import type { Booking, BookingStatus, Dashboard } from '../../types';
 
-const STATUSES: (BookingStatus | '')[] = ['', 'PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+const STATUSES: (BookingStatus | '')[] = ['', 'PENDING', 'READY_FOR_PICKUP', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
 
 export default function Bookings() {
   const [status, setStatus] = useState<BookingStatus | ''>('');
@@ -30,21 +30,9 @@ export default function Bookings() {
       b.scooter.code.toLowerCase().includes(q),
   );
 
-  // The customer normally ends their own rental; an admin can do it for them (e.g. scooter left at the office).
-  const endRental = async (b: Booking) => {
-    const ok = await confirm({
-      title: `End ${b.reference}?`,
-      message: `End the rental for ${b.customer.fullName}? The final total is charged to their card.`,
-      confirmLabel: 'End rental',
-    });
-    if (!ok) return;
-    await action.run(() => api.put(`/bookings/${encodeURIComponent(b.id)}/complete`, {}));
-    list.reload();
-    summary.reload();
-  };
-
   const cancel = async (b: Booking) => {
-    const msg = b.status === 'ACTIVE' ? `Cancel ${b.reference}? The customer is refunded in full.` : `Cancel ${b.reference}?`;
+    const paid = b.status === 'ACTIVE' || b.status === 'READY_FOR_PICKUP';
+    const msg = paid ? `Cancel ${b.reference}? The customer is refunded in full.` : `Cancel ${b.reference}?`;
     const ok = await confirm({
       title: `Cancel ${b.reference}?`,
       message: msg,
@@ -85,7 +73,7 @@ export default function Bookings() {
             <div className="kpi__hint">Booked, not paid</div>
           </div>
           <div className="kpi">
-            <div className="kpi__label">Upcoming</div>
+            <div className="kpi__label">Ready for pickup</div>
             <div className="kpi__value">{summary.data.upcoming}</div>
             <div className="kpi__hint">Paid, not started</div>
           </div>
@@ -136,7 +124,7 @@ export default function Bookings() {
                 <th scope="col">Customer</th>
                 <th scope="col">Reference</th>
                 <th scope="col">Scooter</th>
-                <th scope="col">Started / ended</th>
+                <th scope="col">Pickup / started / ended</th>
                 <th scope="col">Stage</th>
                 <th scope="col" className="num">
                   Total
@@ -174,8 +162,8 @@ export default function Bookings() {
                       </div>
                     </div>
                   </td>
-                  <td data-label="Started / ended">
-                    {dateTime(b.startTime)}
+                  <td data-label="Pickup / started / ended">
+                    {b.actualStartTime ? dateTime(b.actualStartTime) : <>Pickup {dateTime(b.startTime)}</>}
                     {b.endTime && <span className="cell-sub">→ {dateTime(b.endTime)}</span>}
                   </td>
                   <td data-label="Stage">
@@ -187,12 +175,21 @@ export default function Bookings() {
                   </td>
                   <td className="actions">
                     <div className="row">
-                      {b.stage === 'IN_PROGRESS' && (
-                        <button className="small primary" disabled={action.busy} onClick={() => endRental(b)}>
-                          End rental
-                        </button>
+                      {/* Handover and return need an odometer reading: they are done on the booking page. */}
+                      {b.stage === 'READY_FOR_PICKUP' && !b.handoverConfirmedAt && (
+                        <Link className="btn small primary" to={adminBookingPath(b.id)}>
+                          Hand over
+                        </Link>
                       )}
-                      {(b.stage === 'AWAITING_PAYMENT' || b.stage === 'PAYMENT_FAILED' || b.stage === 'UPCOMING') && (
+                      {b.stage === 'IN_PROGRESS' && (
+                        <Link className="btn small primary" to={adminBookingPath(b.id)}>
+                          Return & end
+                        </Link>
+                      )}
+                      {(b.stage === 'AWAITING_PAYMENT' ||
+                        b.stage === 'PAYMENT_FAILED' ||
+                        b.stage === 'UPCOMING' ||
+                        b.stage === 'READY_FOR_PICKUP') && (
                         <button className="small danger" disabled={action.busy} onClick={() => cancel(b)}>
                           Cancel
                         </button>

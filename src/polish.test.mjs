@@ -63,12 +63,13 @@ describe('accessible confirmation dialog', () => {
 
   it('keeps the booking actions behind the same conditions and API calls', () => {
     const detail = read('pages', 'BookingDetail.tsx');
-    assert.match(detail, /const canCancel = b\.stage === 'AWAITING_PAYMENT' \|\| b\.stage === 'PAYMENT_FAILED' \|\| b\.stage === 'UPCOMING';/);
+    assert.match(detail, /b\.stage === 'UPCOMING' \|\|\s*canCancelPickup\(b, adminView\);/);
     // A viva demo rental (no payment record) is ended only by the admin demo controls.
     assert.match(detail, /const demoRental = isDemoRental\(b\);/);
-    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\) && !demoRental;/);
+    assert.match(detail, /const canReturn = b\.stage === 'IN_PROGRESS' && adminView && !demoRental;/);
     assert.match(detail, /api\.post<Booking>\(`\$\{bookingApi\}\/cancel`\)/);
-    assert.match(detail, /if \(!ok\) return;\s*await end\.run\(\(\) => api\.put<Booking>\(`\$\{bookingApi\}\/complete`, \{\}\)\);/);
+    // A frozen bill is retried as it is, with no odometer reading.
+    assert.match(detail, /await end\.run\(\(\) => api\.put<Booking>\(completePath\(b\.id\), \{\}\)\);/);
   });
 
   it('is styled as a bounded modal with a visible backdrop', () => {

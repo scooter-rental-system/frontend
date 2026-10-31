@@ -1,7 +1,8 @@
 /**
- * Viva demo mode (backend Spring profile `demo` only). Admins can start, end and close a rental without a payment so
- * the lifecycle can be shown locally; nothing is charged and nothing pretends to be a payment. Kept free of runtime
- * imports so `npm test` can run it.
+ * Viva demo mode (backend Spring profile `demo` only). Admins can confirm a booking without a payment (it becomes ready
+ * for pickup and then starts through the normal handover and the customer's start), end it with the ending odometer
+ * and close it, so the lifecycle can be shown locally; nothing is charged and nothing pretends to be a payment. Kept
+ * free of runtime imports so `npm test` can run it.
  */
 
 /** Exists only when the backend runs with the demo profile; anywhere else it answers 404. */
@@ -11,7 +12,7 @@ export const DEMO_BANNER = 'VIVA DEMO MODE · Demo environment: no real payments
 export const DEMO_WARNING = 'Demo mode only. No real payment will be processed.';
 
 export const DEMO_LABEL = {
-  activate: 'Viva Demo — Activate Rental',
+  activate: 'Viva Demo — Mark Ready for Pickup',
   end: 'Viva Demo — End Rental & Calculate Final Bill',
   close: 'Viva Demo — Close Demo Rental',
 } as const;
@@ -19,8 +20,10 @@ export const DEMO_LABEL = {
 export type DemoAction = keyof typeof DEMO_LABEL;
 
 export const DEMO_HELP: Record<DemoAction, string> = {
-  activate: 'Starts this rental now without a payment, so live GPS and repair reports can be shown.',
-  end: 'Ends the rental and calculates the final bill with the normal pricing rules. Nothing is charged.',
+  activate:
+    'Skips the payment only: the booking becomes ready for pickup. The rental then starts through the normal ' +
+    'handover (with the starting odometer) and the customer\'s start confirmation.',
+  end: 'Ends the rental with the ending odometer and calculates the final bill with the normal pricing rules. Nothing is charged.',
   close: 'Cancels this demo rental, voids its unpaid final invoice and makes the scooter available again.',
 };
 
@@ -28,7 +31,7 @@ export const DEMO_UNSIGNED = 'The customer must sign the rental agreement before
 
 /** Shown to everyone on a demo rental, in or out of demo mode. */
 export const DEMO_RENTAL_NOTE =
-  'No payment has been taken for this rental: it was started in viva demo mode. Its final bill is calculated with ' +
+  'No payment has been taken for this rental: it was confirmed in viva demo mode. Its final bill is calculated with ' +
   'the normal pricing rules but not charged.';
 
 type DemoBooking = {
@@ -38,9 +41,12 @@ type DemoBooking = {
   payment: unknown;
 };
 
-/** A rental started in viva demo mode: active without a payment record. A paid rental always has one. */
+/**
+ * A booking confirmed in viva demo mode: ready for pickup or active without a payment record. A paid booking always
+ * has one.
+ */
 export function isDemoRental(b: DemoBooking): boolean {
-  return b.status === 'ACTIVE' && !b.payment;
+  return (b.status === 'READY_FOR_PICKUP' || b.status === 'ACTIVE') && !b.payment;
 }
 
 /** The demo actions an admin may take on this booking; none outside demo mode or for customers. */

@@ -93,13 +93,15 @@ export interface Quote {
   initialCharge: number;
 }
 
-// SDS 3.2. Open-ended rentals: ACTIVE from successful payment until the customer ends the rental.
-export type BookingStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+// SDS 3.2, with the pickup step: READY_FOR_PICKUP once paid; ACTIVE from the actual start (the admin handover with
+// the starting odometer, then the customer's start confirmation) until the rental is settled.
+export type BookingStatus = 'PENDING' | 'READY_FOR_PICKUP' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
 /** Display stage derived on the server from status, payment and times. */
 export type BookingStage =
   | 'AWAITING_PAYMENT'
   | 'PAYMENT_FAILED'
+  | 'READY_FOR_PICKUP'
   | 'UPCOMING'
   | 'IN_PROGRESS'
   | 'BALANCE_DUE'
@@ -191,11 +193,22 @@ export interface Booking {
     hourlyRate: number;
     perKmRate: number;
   };
+  /** The planned pickup time the customer chose. */
   startTime: string;
+  /** When the rental really started (server time); null until the customer confirms the start. */
+  actualStartTime: string | null;
+  /** When an admin confirmed handing the scooter over, with the starting odometer. */
+  handoverConfirmedAt: string | null;
+  handoverConfirmedBy: string | null;
+  customerStartConfirmedAt: string | null;
+  /** Odometer readings (km) entered by an admin at handover and return; the billed distance is the difference. */
+  startOdometerKm: number | null;
+  endOdometerKm: number | null;
   endTime: string | null;
   billableHours: number | null;
   /** How the ended rental is charged (null until it ends): days, extra hours and the distance allowance. */
   breakdown: { chargedDays: number; extraHours: number; includedKm: number; excessKm: number } | null;
+  /** The billed distance (the odometer difference), set when the rental is completed. */
   distanceKm: number | null;
   totalCost: number | null;
   /** Balance due only: frozen settlement (endTime and totalCost stay null until COMPLETED, SDS 2.2). */

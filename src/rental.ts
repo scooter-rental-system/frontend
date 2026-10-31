@@ -12,6 +12,16 @@ import type { Booking, BookingStage } from './types';
  */
 export const SPEED_LIMIT_KMH = 60;
 
+/**
+ * Live rental GPS comes from the customer's phone/browser, not from a tracker on the scooter, so its speed is
+ * approximate and can spike (a position jump, a test coordinate). Above this a reading is shown as unreliable and
+ * never counts as over the limit (GpsService.MAX_CREDIBLE_RIDER_SPEED_KMH).
+ */
+export const MAX_CREDIBLE_SPEED_KMH = 150;
+
+/** A speed reminder needs this many consecutive credible over-limit readings (GpsService.SUSTAINED_RIDER_REPORTS). */
+export const SUSTAINED_OVERSPEED_READINGS = 3;
+
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
 const soonestFirst = (a: Booking, b: Booking) => time(a.startTime) - time(b.startTime);
 
@@ -34,7 +44,7 @@ export function rightNow(bookings: readonly Booking[]): RightNow {
     ['riding', ['IN_PROGRESS']],
     ['balance', ['BALANCE_DUE']],
     ['pay', ['AWAITING_PAYMENT', 'PAYMENT_FAILED']],
-    ['upcoming', ['UPCOMING']],
+    ['upcoming', ['READY_FOR_PICKUP', 'UPCOMING']],
   ];
   for (const [kind, stages] of order) {
     const booking = pick(stages);
@@ -52,11 +62,16 @@ export interface CardAction {
 
 /**
  * A booking's next step for the customer. Unpaid bookings (PENDING) continue at checkout, as before; everything
- * else opens the booking page.
+ * else opens the booking page, where a scooter that has been handed over waits for the customer's start.
  */
-export function cardAction(b: Pick<Booking, 'stage' | 'status'>): CardAction {
+export function cardAction(
+  b: Pick<Booking, 'stage' | 'status'> & Partial<Pick<Booking, 'handoverConfirmedAt'>>,
+): CardAction {
   if (b.status === 'PENDING') {
     return { target: 'checkout', label: b.stage === 'PAYMENT_FAILED' ? 'Try payment again' : 'Complete payment', primary: true };
+  }
+  if (b.stage === 'READY_FOR_PICKUP' && b.handoverConfirmedAt) {
+    return { target: 'booking', label: 'Confirm rental start', primary: true };
   }
   if (b.stage === 'BALANCE_DUE') return { target: 'booking', label: 'Settle balance', primary: true };
   if (b.stage === 'IN_PROGRESS') return { target: 'booking', label: 'Track your ride', primary: true };
@@ -79,6 +94,7 @@ const CATEGORY_OF: Record<BookingStage, BookingCategory> = {
   BALANCE_DUE: 'active',
   AWAITING_PAYMENT: 'upcoming',
   PAYMENT_FAILED: 'upcoming',
+  READY_FOR_PICKUP: 'upcoming',
   UPCOMING: 'upcoming',
   COMPLETED: 'past',
   CANCELLED: 'cancelled',
@@ -119,12 +135,14 @@ export interface TimelineStep {
 
 /**
  * Reserved → Paid → In progress → Completed, from the server stage: [steps done, whether the next step is under
- * way]. Awaiting payment is at "Paid"; a paid booking that has not started has no step under way; a balance due is
+ * way]. Awaiting payment is at "Paid"; a paid booking waiting for pickup (or not yet started) has no step under way;
+ * a balance due is
  * at "Completed". A cancelled booking ends at "Cancelled".
  */
 const PROGRESS: Record<Exclude<BookingStage, 'CANCELLED' | 'REFUNDED'>, [number, boolean]> = {
   AWAITING_PAYMENT: [1, true],
   PAYMENT_FAILED: [1, true],
+  READY_FOR_PICKUP: [2, false],
   UPCOMING: [2, false],
   IN_PROGRESS: [2, true],
   BALANCE_DUE: [3, true],
@@ -149,8 +167,12 @@ export function timeline(stage: BookingStage): TimelineStep[] {
 export const STAGE_HELP: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'Sign the rental agreement and pay to confirm it. Unpaid reservations are released after 30 minutes.',
   PAYMENT_FAILED: 'The last payment did not go through. Try again to keep this booking.',
+  READY_FOR_PICKUP:
+    'Paid and ready for pickup. The rental starts, and is billed from, when our team hands the scooter over and you ' +
+    'confirm the start here. You can cancel for a full refund until the handover.',
   UPCOMING: 'Paid and confirmed. You can cancel for a full refund until the rental starts.',
-  IN_PROGRESS: 'Your rental is running. End it in the app when you return the scooter.',
+  IN_PROGRESS:
+    'Your rental is running. Return the scooter at the rental counter: our team reads the odometer and ends it.',
   BALANCE_DUE: 'The rental has ended, but the final payment has not been settled yet.',
   COMPLETED: 'This rental is complete. Thank you for riding with us.',
   CANCELLED: 'This booking was cancelled.',
@@ -175,9 +197,25 @@ export interface SpeedState {
   over: boolean;
 }
 
-/** The latest reported speed, with a text warning above the limit. No speed is shown for a stale position. */
-export function speedState(speedKmh: number | null | undefined, stale: boolean): SpeedState {
-  if (stale || speedKmh == null) return { text: '—', over: false };
-  const kmh = Math.round(speedKmh);
-  return { text: `${kmh} km/h`, over: speedKmh > SPEED_LIMIT_KMH };
+type SpeedReading = { speedKmh: number | null };
+
+const credibleOverLimit = (kmh: number | null) =>
+  kmh != null && kmh > SPEED_LIMIT_KMH && kmh <= MAX_CREDIBLE_SPEED_KMH;
+
+/** Whether the latest readings, oldest first, end with a sustained run of credible over-limit speeds. */
+export function sustainedOverspeed(readings: readonly SpeedReading[] | null | undefined): boolean {
+  if (!readings || readings.length < SUSTAINED_OVERSPEED_READINGS) return false;
+  return readings.slice(-SUSTAINED_OVERSPEED_READINGS).every((r) => credibleOverLimit(r.speedKmh));
+}
+
+/**
+ * The latest approximate speed from the readings (oldest first). An implausible reading is shown as unreliable; the
+ * rider is reminded of the limit only after a sustained run of credible over-limit readings, never for one spike.
+ * No speed is shown for a stale position.
+ */
+export function speedState(readings: readonly SpeedReading[] | null | undefined, stale: boolean): SpeedState {
+  const latest = readings && readings.length > 0 ? readings[readings.length - 1].speedKmh : null;
+  if (stale || latest == null) return { text: '—', over: false };
+  if (latest > MAX_CREDIBLE_SPEED_KMH) return { text: 'Unreliable reading', over: false };
+  return { text: `≈ ${Math.round(latest)} km/h`, over: sustainedOverspeed(readings) };
 }

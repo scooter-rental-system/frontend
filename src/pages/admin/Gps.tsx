@@ -5,7 +5,7 @@ import { gpsCounts } from '../../admin';
 import MapView, { MapMarker } from '../../components/MapView';
 import { ErrorAlert, StatusBadge } from '../../components/ui';
 import { dateTime } from '../../format';
-import { SPEED_LIMIT_KMH } from '../../rental';
+import { speedState } from '../../rental';
 import { adminGpsHistoryPath } from '../../routes';
 import type { LivePosition, Tracking } from '../../types';
 
@@ -74,7 +74,6 @@ export default function Gps() {
   const counts = gpsCounts(positions);
   const chosen = positions.find((p) => p.scooterId === selected) ?? null;
   // The newest point of the real 6-hour trail; no speed is shown when the tracker sent none.
-  const lastPoint = trail && trail.trail.length > 0 ? trail.trail[trail.trail.length - 1] : null;
 
   return (
     <div className="admin-page">
@@ -140,9 +139,9 @@ export default function Gps() {
               </div>
               <dl className="gps-readout">
                 <div>
-                  <dt>Last speed</dt>
-                  <dd>{lastPoint?.speedKmh != null ? `${Math.round(lastPoint.speedKmh)} km/h` : '—'}</dd>
-                  {lastPoint?.speedKmh != null && lastPoint.speedKmh > SPEED_LIMIT_KMH && <span className="badge red">Over limit</span>}
+                  <dt>Last speed (approx.)</dt>
+                  <dd>{speedState(trail?.trail, false).text}</dd>
+                  {speedState(trail?.trail, false).over && <span className="badge red">Over limit (sustained)</span>}
                 </div>
                 <div>
                   <dt>6 h trail</dt>

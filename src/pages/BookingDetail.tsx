@@ -6,7 +6,9 @@ import { BackLink } from '../components/BackLink';
 import { BookingStepper } from '../components/BookingStepper';
 import { BookingTimeline } from '../components/BookingTimeline';
 import { DemoControls } from '../components/DemoMode';
+import { PickupPanel } from '../components/PickupPanel';
 import { RepairPanel } from '../components/RepairPanel';
+import { ReturnPanel } from '../components/ReturnPanel';
 import { TransferPanel } from '../components/TransferPanel';
 import { useConfirm } from '../useConfirm';
 import { StripePayment } from '../components/StripePayment';
@@ -38,6 +40,13 @@ import {
 } from '../transfers';
 import { DEMO_RENTAL_NOTE, demoActions, demoBlocker, isDemoRental } from '../demo';
 import { dateTime, money } from '../format';
+import {
+  canCancelPickup,
+  completePath,
+  GPS_NOT_BILLED_NOTE,
+  odometerDistance,
+  RETURN_AT_COUNTER_NOTE,
+} from '../handover';
 import { useAction, useLoad } from '../hooks';
 import {
   awaitBackendRecord,
@@ -48,18 +57,24 @@ import {
   type PaymentPurpose,
 } from '../payments';
 import { GPS_STATUS_TEXT, isTrackingOff, shouldReportLocation } from '../gps';
-import { UNRESOLVED_REPAIRS_ADMIN, UNRESOLVED_REPAIRS_CUSTOMER, unresolvedReimbursements } from '../repairs';
+import {
+  RETURN_BLOCKED_BY_REPAIRS,
+  UNRESOLVED_REPAIRS_ADMIN,
+  UNRESOLVED_REPAIRS_CUSTOMER,
+  unresolvedReimbursements,
+} from '../repairs';
 import { liveState, SPEED_LIMIT_KMH, speedState, STAGE_HELP } from '../rental';
 import { adminGpsHistoryPath, checkoutPath } from '../routes';
 import { useDemoMode } from '../useDemoMode';
 import { useRiderGps } from '../useRiderGps';
-import { excessKm, gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTime, scooterTimeCost } from '../pricing';
+import { gearDays as chargedGearDays, INCLUDED_KM_PER_DAY, scooterTimeCost } from '../pricing';
 import { isAdmin } from '../types';
 import type { Booking, BookingStage, Contract, Invoice, Payment, PaymentIntent, RepairReport, Tracking } from '../types';
 
 const STAGE_TEXT: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'Awaiting payment',
   PAYMENT_FAILED: 'Payment failed',
+  READY_FOR_PICKUP: 'Paid · ready for pickup',
   UPCOMING: 'Paid · starts soon',
   IN_PROGRESS: 'Rental in progress',
   BALANCE_DUE: 'Ended · balance due',
@@ -147,14 +162,21 @@ export default function BookingDetail() {
   const paymentReturn = usePaymentReturn(id, booking.setData, invoices.reload);
   const demoMode = useDemoMode();
 
-  if (booking.loading) return <Loading />;
+  // Only the first load replaces the page: a reload after an action keeps it (and the action's error) on screen.
+  if (booking.loading && !booking.data) return <Loading />;
   if (!booking.data) return <ErrorAlert error={booking.error} />;
   const b = booking.data;
   const isOwner = user?.id === b.customer.id;
-  const canCancel = b.stage === 'AWAITING_PAYMENT' || b.stage === 'PAYMENT_FAILED' || b.stage === 'UPCOMING';
+  const adminView = inAdmin && isAdmin(user?.role);
+  const canCancel =
+    b.stage === 'AWAITING_PAYMENT' ||
+    b.stage === 'PAYMENT_FAILED' ||
+    b.stage === 'UPCOMING' ||
+    canCancelPickup(b, adminView);
   // A viva demo rental has no payment to settle against: only the admin demo controls end it.
   const demoRental = isDemoRental(b);
-  const canEnd = b.stage === 'IN_PROGRESS' && (isOwner || isAdmin(user?.role)) && !demoRental;
+  // The scooter is returned at the counter: an admin enters the ending odometer and ends the rental.
+  const canReturn = b.stage === 'IN_PROGRESS' && adminView && !demoRental;
   // Paid in cash at the counter before cash left the checkout: only an admin records the cash.
   const cash = isCashBooking(b);
   // QR Pay or bank transfer: the customer transfers outside the app and an admin approves the receipt.
@@ -171,7 +193,7 @@ export default function BookingDetail() {
 
   const doCancel = async () => {
     const msg =
-      b.status === 'ACTIVE'
+      b.status === 'ACTIVE' || b.status === 'READY_FOR_PICKUP'
         ? cash
           ? CASH_CANCEL_NOTE
           : transfer
@@ -189,20 +211,9 @@ export default function BookingDetail() {
     if (await cancel.run(() => api.post<Booking>(`${bookingApi}/cancel`))) refresh();
   };
 
-  // Ending charges the remaining balance; if that fails the booking stays ACTIVE with the balance due.
-  const doEnd = async () => {
-    const ok = await confirm({
-      title: 'End the rental now?',
-      message: cash
-        ? CASH_END_NOTE
-        : transfer
-          ? TRANSFER_END_NOTE
-          : 'The final total is calculated and the balance charged to your card.',
-      confirmLabel: 'End rental',
-      cancelLabel: 'Keep riding',
-    });
-    if (!ok) return;
-    await end.run(() => api.put<Booking>(`${bookingApi}/complete`, {}));
+  // The rental already ended with its bill fixed: retrying charges the same balance to the saved card again.
+  const retryBalance = async () => {
+    await end.run(() => api.put<Booking>(completePath(b.id), {}));
     refresh();
   };
 
@@ -211,12 +222,12 @@ export default function BookingDetail() {
       {dialog}
       {/* Admins reach this page under /admin, customers under /bookings: go back to the matching list. */}
       <BackLink fallback={inAdmin ? '/admin/bookings' : '/bookings'} label="All bookings" />
-      {/* Back from Checkout: shown only once the backend reports the booking ACTIVE (payment confirmed). */}
-      {params.get('paid') && b.status === 'ACTIVE' && (
+      {/* Back from Checkout: shown only once the backend reports the booking paid (ready for pickup). */}
+      {params.get('paid') && b.status === 'READY_FOR_PICKUP' && (
         <>
           <BookingStepper current={3} />
           <div className="alert success" role="status">
-            Payment received. Your scooter is booked!
+            Payment received. Your scooter is ready for pickup!
           </div>
         </>
       )}
@@ -249,11 +260,6 @@ export default function BookingDetail() {
                   : 'Sign & pay'}
             </Link>
           )}
-          {canEnd && (
-            <button className="primary booking-header__end" onClick={doEnd} disabled={end.busy || openRepairs.length > 0}>
-              {end.busy ? 'Ending rental…' : 'End rental'}
-            </button>
-          )}
           {canCancel && (
             <button className="danger" onClick={doCancel} disabled={cancel.busy}>
               Cancel booking
@@ -264,7 +270,7 @@ export default function BookingDetail() {
 
       <BookingTimeline stage={b.stage} />
 
-      {canEnd && openRepairs.length > 0 && (
+      {b.stage === 'IN_PROGRESS' && !demoRental && openRepairs.length > 0 && (
         <div className="alert warning" role="status">
           {inAdmin ? UNRESOLVED_REPAIRS_ADMIN : UNRESOLVED_REPAIRS_CUSTOMER}
           {inAdmin && (
@@ -283,6 +289,27 @@ export default function BookingDetail() {
           blocker={demoBlocker(b, demoMode, isAdmin(user?.role))}
           onChanged={refresh}
         />
+      )}
+
+      <PickupPanel booking={b} admin={adminView} owner={isOwner && !adminView} onChanged={refresh} />
+      {canReturn && (
+        <ReturnPanel
+          booking={b}
+          endNote={
+            cash
+              ? CASH_END_NOTE
+              : transfer
+                ? TRANSFER_END_NOTE
+                : 'The final total is calculated and the balance charged to the customer\'s card.'
+          }
+          blockedReason={openRepairs.length > 0 ? RETURN_BLOCKED_BY_REPAIRS : null}
+          onChanged={refresh}
+        />
+      )}
+      {b.stage === 'IN_PROGRESS' && !adminView && !demoRental && (
+        <div className="alert info" role="note">
+          {RETURN_AT_COUNTER_NOTE}
+        </div>
       )}
 
       {cash && (
@@ -321,7 +348,7 @@ export default function BookingDetail() {
         <DemoSettlement booking={b} invoice={invoices.data?.find((i) => i.kind === 'FINAL')} />
       )}
       {b.stage === 'BALANCE_DUE' && !demoRental && (
-        <BalanceDue booking={b} isOwner={isOwner} retrying={end.busy} onRetry={doEnd} onPaid={refresh} />
+        <BalanceDue booking={b} isOwner={isOwner} retrying={end.busy} onRetry={retryBalance} onPaid={refresh} />
       )}
       {b.stage !== 'BALANCE_DUE' && <ErrorAlert error={end.error} />}
 
@@ -347,11 +374,20 @@ export default function BookingDetail() {
               {money(b.scooter.dailyRate)}/day · {money(b.scooter.hourlyRate)}/extra hour ·{' '}
               {money(b.scooter.perKmRate)}/km above the {INCLUDED_KM_PER_DAY} km per day included
             </DetailRow>
-            <DetailRow label="Started">{dateTime(b.startTime)}</DetailRow>
+            <DetailRow label="Planned pickup">{dateTime(b.startTime)}</DetailRow>
+            {b.actualStartTime && <DetailRow label="Rental started">{dateTime(b.actualStartTime)}</DetailRow>}
+            {b.startOdometerKm != null && <DetailRow label="Starting odometer">{b.startOdometerKm} km</DetailRow>}
+            {b.endOdometerKm != null && <DetailRow label="Ending odometer">{b.endOdometerKm} km</DetailRow>}
+            {b.endOdometerKm != null && (
+              <DetailRow label="Actual distance travelled">
+                {odometerDistance(b.startOdometerKm, b.endOdometerKm)} km (odometer)
+              </DetailRow>
+            )}
             {(b.endTime ?? b.endedAt) && (
               <DetailRow label="Ended">
                 {dateTime(b.endTime ?? b.endedAt)} · {b.billableHours} hour{b.billableHours === 1 ? '' : 's'} ·{' '}
-                {b.distanceKm ?? b.pendingDistanceKm} km
+                {b.distanceKm ?? b.pendingDistanceKm} km billed
+                {b.startOdometerKm == null && ' (GPS, rental started before odometer readings)'}
               </DetailRow>
             )}
             {b.breakdown && (
@@ -739,20 +775,17 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
     };
   }, [b.id]);
 
-  // Running estimate with the billing rule (pricing.ts mirrors PricingService): days and extra hours, GPS km above
-  // the allowance, gear days.
-  const elapsedMs = Date.now() - new Date(b.startTime).getTime();
+  // Running estimate with the billing rule (pricing.ts mirrors PricingService) from the actual start: days and extra
+  // hours, gear days. Distance is charged from the odometer at return, so it is not estimated from GPS.
+  const elapsedMs = Date.now() - new Date(b.actualStartTime ?? b.startTime).getTime();
   const hours = Math.max(1, Math.ceil(elapsedMs / 3_600_000));
   const km = tracking?.distanceKm ?? 0;
   const gearDays = chargedGearDays(elapsedMs);
   const gearCost = b.gear.reduce((sum, g) => sum + g.dailyRate * g.quantity * gearDays, 0);
-  const chargeableKm = excessKm(km, scooterTime(elapsedMs).days);
-  const estimate =
-    scooterTimeCost(elapsedMs, b.scooter.dailyRate, b.scooter.hourlyRate) + chargeableKm * b.scooter.perKmRate + gearCost;
-  const last = tracking?.trail[tracking.trail.length - 1];
+  const estimate = scooterTimeCost(elapsedMs, b.scooter.dailyRate, b.scooter.hourlyRate) + gearCost;
   const p = tracking?.position;
   const live = liveState(p);
-  const speed = speedState(last?.speedKmh, !!p?.stale);
+  const speed = speedState(tracking?.trail, !!p?.stale);
 
   return (
     <section className="card stack live-rental" aria-labelledby="live-title">
@@ -770,20 +803,29 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
       {gps && (
         <div className={`alert small ${gps === 'active' || gps === 'starting' ? 'info' : 'warning'}`} role="status">
           {GPS_STATUS_TEXT[gps]}
-          {isTrackingOff(gps) && ' Your rental continues; distance is billed from the location reports received.'}
+          {isTrackingOff(gps) && ' Your rental continues; the distance charged comes from the odometer at return.'}
         </div>
       )}
       {speed.over && (
-        <div className="alert warning" role="alert">
-          <strong>Over the speed limit:</strong> your last reported speed was {speed.text}. Please slow down; the limit
-          is {SPEED_LIMIT_KMH} km/h.
+        <div className="alert warning" role="status">
+          <strong>Speed reminder:</strong> your phone&apos;s last few location readings suggest speeds above{' '}
+          {SPEED_LIMIT_KMH} km/h (latest {speed.text}). Phone GPS speed is approximate, but please ride within the
+          limit.
         </div>
       )}
       <div className="stats live-rental__tiles" aria-live="polite">
         <Stat label="Time so far" value={`${hours} h`} hint="Each started hour" />
-        <Stat label="Distance (GPS)" value={`${km.toFixed(2)} km`} />
-        <Stat label="Speed" value={speed.text} hint={speed.over ? `Over ${SPEED_LIMIT_KMH} km/h` : undefined} />
-        <Stat label="Estimated total" value={money(estimate)} hint="Before any approved repair reimbursement" />
+        <Stat label="Tracked GPS distance" value={`${km.toFixed(2)} km`} hint="Approximate · not billed" />
+        <Stat
+          label="Approx. speed (phone GPS)"
+          value={speed.text}
+          hint={speed.over ? `Above ${SPEED_LIMIT_KMH} km/h for several readings` : 'Approximate'}
+        />
+        <Stat
+          label="Estimated so far"
+          value={money(estimate)}
+          hint="Time and gear; excess km from the odometer at return, less any approved repair reimbursement"
+        />
       </div>
       {(p?.latitude == null || p.longitude == null) && tracking && (
         <p className="muted small">No location has been reported for this rental yet, so there is no map position to show.</p>
@@ -805,8 +847,9 @@ function LiveTracking({ booking: b, reportLocation }: { booking: Booking; report
         />
       )}
       <p className="muted small">
-        GPS logs your route for distance billing and helps us find you if you need roadside help. In an emergency,
-        call our office. When you are back, use <strong>End rental</strong> at the top of this page.
+        GPS shows your approximate route and helps us find you if you need roadside help. {GPS_NOT_BILLED_NOTE} In an
+        emergency, call our office. When you are back, return the scooter at the rental counter: our team reads the
+        odometer and ends the rental.
       </p>
     </section>
   );

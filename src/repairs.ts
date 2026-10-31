@@ -113,6 +113,10 @@ export const unresolvedReimbursements = (reports: readonly Pick<RepairReport, 's
 export const UNRESOLVED_REPAIRS_ADMIN =
   'This rental has unresolved repair reports. Resolve them before calculating the final bill: open Repairs, review the report, enter any approved reimbursement, set it to Resolved and save, then come back and end the rental.';
 
+/** Next to the disabled "End rental" button, so the admin sees why it cannot be pressed. */
+export const RETURN_BLOCKED_BY_REPAIRS =
+  'Ending is blocked: a self-arranged repair report is not resolved yet. Review it in Repairs, enter any approved reimbursement, set it to Resolved and save; then enter the ending odometer here.';
+
 export const UNRESOLVED_REPAIRS_CUSTOMER =
   'Your repair report is still being reviewed. The rental can be ended once our team has resolved it, so any approved reimbursement is included in your final bill.';
 
