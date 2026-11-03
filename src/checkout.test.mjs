@@ -103,6 +103,12 @@ describe('Stripe wrapper', () => {
     assert.match(stripe, /appearance: \{ theme: resolved === 'dark' \? 'night' : 'stripe' \}/);
   });
 
+  it('clearly identifies Stripe test mode without changing the secure payment form', () => {
+    assert.match(stripe, /mode: stripeMode\(config\.publishableKey\)/);
+    assert.match(stripe, /\{mode === 'test' && \([\s\S]*?Stripe test mode is active\. Test payments do not move real money\./);
+    assert.match(stripe, /<PaymentElement/);
+  });
+
   it('adds no card fields or payment shortcuts around Stripe', () => {
     for (const source of [checkout, read('pages', 'ScooterBook.tsx'), read('checkout.ts')]) {
       assert.doesNotMatch(source, /cardNumber|CardElement|4242|pm_card|mock|fake|simulat/i);

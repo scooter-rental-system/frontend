@@ -11,6 +11,7 @@ import {
   paymentSetup,
   returnUrl,
   singleFlight,
+  stripeMode,
   SUPPORTED_PROVIDER,
   type PaymentPurpose,
   type PaymentResult,
@@ -24,7 +25,7 @@ type Setup =
   | { state: 'loading' }
   | { state: 'unavailable'; message: string }
   | { state: 'error'; message: string }
-  | { state: 'ready'; stripe: Promise<Stripe | null>; clientSecret: string };
+  | { state: 'ready'; stripe: Promise<Stripe | null>; clientSecret: string; mode: 'test' | 'live' | null };
 
 /**
  * Card payment with the Stripe Payment Element (SDS 4.2). Card details are entered in Stripe's own fields and
@@ -88,7 +89,12 @@ export function StripePayment({
           show({ state: 'unavailable', message: CUSTOMER_PAYMENTS_UNAVAILABLE });
           return;
         }
-        show({ state: 'ready', stripe: stripeFor(config.publishableKey), clientSecret: intent.clientSecret });
+        show({
+          state: 'ready',
+          stripe: stripeFor(config.publishableKey),
+          clientSecret: intent.clientSecret,
+          mode: stripeMode(config.publishableKey),
+        });
       } catch (e) {
         requested.current = false; // allow "Try again"
         show({ state: 'error', message: e instanceof Error ? e.message : String(e) });
@@ -133,6 +139,7 @@ export function StripePayment({
         bookingId={bookingId}
         purpose={purpose}
         amount={amount}
+        mode={setup.mode}
         reload={reload}
         onSettled={onSettled}
         billingName={billingName}
@@ -148,6 +155,7 @@ function PaymentForm({
   bookingId,
   purpose,
   amount,
+  mode,
   reload,
   onSettled,
   billingName,
@@ -156,6 +164,7 @@ function PaymentForm({
   bookingId: string;
   purpose: PaymentPurpose;
   amount: number;
+  mode: 'test' | 'live' | null;
   reload: () => Promise<Booking>;
   onSettled: (booking: Booking) => void;
   billingName?: string;
@@ -238,6 +247,11 @@ function PaymentForm({
   const busy = phase.step === 'submitting';
   return (
     <form className="stack" onSubmit={submit}>
+      {mode === 'test' && (
+        <div className="alert info small" role="status">
+          Stripe test mode is active. Test payments do not move real money.
+        </div>
+      )}
       <PaymentElement
         options={{
           layout: 'tabs',

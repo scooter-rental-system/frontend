@@ -6,6 +6,7 @@ import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import { ErrorAlert } from '../components/ui';
 import { date } from '../format';
 import { useAction } from '../hooks';
+import { nicError } from '../registration';
 import type { User } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ interface ProfileForm {
   country:          string;
   idDocumentNumber: string;
   drivingLicenseNo: string;
+  nicNumber: string;
 }
 
 function toForm(u: User): ProfileForm {
@@ -25,6 +27,7 @@ function toForm(u: User): ProfileForm {
     country:          u.country          ?? '',
     idDocumentNumber: u.idDocumentNumber ?? '',
     drivingLicenseNo: u.drivingLicenseNo ?? '',
+    nicNumber: '',
   };
 }
 
@@ -38,6 +41,7 @@ export default function Profile() {
 
   const [form, setForm]       = useState<ProfileForm>(() => toForm(user!));
   const [saved, setSaved]     = useState(false);
+  const [nicProblem, setNicProblem] = useState('');
 
   // Keep form in sync if the user object changes (e.g. after another tab logs in)
   useEffect(() => {
@@ -53,14 +57,16 @@ export default function Profile() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setSaved(false);
+    const problem = user.hasNicNumber ? '' : nicError(form.nicNumber);
+    setNicProblem(problem);
+    if (problem) return;
     await action.run(async () => {
-      await api.put<User>('/me', form);
+      const { nicNumber, ...profile } = form;
+      await api.put<User>('/me', user.hasNicNumber ? profile : { ...profile, nicNumber });
       await refresh();         // update topbar name, etc.
       setSaved(true);
     });
   };
-
-  const missing = <span className="muted">Not provided</span>;
 
   return (
     <div className="page page--narrow">
@@ -151,6 +157,32 @@ export default function Profile() {
                   onChange={set('drivingLicenseNo')}
                 />
               </label>
+              {!user.hasNicNumber && (
+                <label htmlFor="profile-nicNumber">
+                  Sri Lankan NIC Number <span className="required">*</span>
+                  <input
+                    id="profile-nicNumber"
+                    autoComplete="off"
+                    maxLength={20}
+                    value={form.nicNumber}
+                    onChange={(e) => {
+                      setNicProblem('');
+                      set('nicNumber')(e);
+                    }}
+                    aria-invalid={!!nicProblem}
+                    aria-describedby={nicProblem ? 'profile-nic-error' : 'profile-nic-hint'}
+                    className={nicProblem ? 'input-error' : ''}
+                    required
+                  />
+                  {nicProblem ? (
+                    <span id="profile-nic-error" className="field-error" role="alert">{nicProblem}</span>
+                  ) : (
+                    <span id="profile-nic-hint" className="muted small">
+                      Required to complete your account. It cannot be changed after you add it.
+                    </span>
+                  )}
+                </label>
+              )}
             </div>
           </section>
 
@@ -168,7 +200,7 @@ export default function Profile() {
               </div>
               <div className="detail-row">
                 <dt>NIC Number</dt>
-                <dd>{(user as User & { nicNumber?: string | null }).nicNumber ?? missing}</dd>
+                <dd>{user.hasNicNumber ? 'Provided' : 'Not provided'}</dd>
               </div>
             </dl>
           </section>
@@ -199,4 +231,3 @@ export default function Profile() {
     </div>
   );
 }
-
