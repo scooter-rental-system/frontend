@@ -69,10 +69,10 @@ const STAGE_TONE: Record<BookingStage, string> = {
 };
 
 /** Shows the server-derived booking stage, with the SDS status as a tooltip. */
-export function StageBadge({ stage, status }: { stage: BookingStage; status: BookingStatus }) {
+export function StageBadge({ stage, status, label }: { stage: BookingStage; status: BookingStatus; label?: string }) {
   return (
     <span className={`badge ${STAGE_TONE[stage] ?? ''}`} title={`Booking status: ${status}`}>
-      {STAGE_LABEL[stage]}
+      {label ?? STAGE_LABEL[stage]}
     </span>
   );
 }

@@ -167,7 +167,7 @@ export default function Bookings() {
                     {b.endTime && <span className="cell-sub">→ {dateTime(b.endTime)}</span>}
                   </td>
                   <td data-label="Stage">
-                    <StageBadge stage={b.stage} status={b.status} />
+                    <StageBadge stage={b.stage} status={b.status} label={b.stage === 'IN_PROGRESS' ? 'Active' : undefined} />
                     {b.stage === 'BALANCE_DUE' && <span className="cell-sub">Due {money(b.payment?.balanceDue)}</span>}
                   </td>
                   <td data-label="Total" className="num">

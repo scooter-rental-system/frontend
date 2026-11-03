@@ -17,7 +17,6 @@ const BRAND_NAME = 'Scooter Rent Kandy';
 const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
   { value: 'light',  label: 'Light',  icon: '☀️' },
   { value: 'dark',   label: 'Dark',   icon: '🌙' },
-  { value: 'system', label: 'System', icon: '💻' },
 ];
 
 /**
@@ -52,7 +51,7 @@ function ThemeToggle() {
   }, [open]);
 
   const icon = resolved === 'dark' ? '🌙' : '☀️';
-  const current = THEME_OPTIONS.find((opt) => opt.value === theme)?.label ?? theme;
+  const current = THEME_OPTIONS.find((opt) => opt.value === theme)?.label ?? (resolved === 'dark' ? 'Dark' : 'Light');
 
   return (
     <div className="theme-menu-wrap" ref={wrapRef}>
@@ -74,8 +73,8 @@ function ThemeToggle() {
           {THEME_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              aria-pressed={theme === opt.value}
-              className={theme === opt.value ? 'is-active' : ''}
+              aria-pressed={theme === opt.value || (theme === 'system' && resolved === opt.value)}
+              className={theme === opt.value || (theme === 'system' && resolved === opt.value) ? 'is-active' : ''}
               onClick={() => {
                 setTheme(opt.value);
                 setOpen(false);
@@ -142,7 +141,7 @@ export function Layout() {
 
           <div id="site-menu" className={`site-menu${menu.open ? ' is-open' : ''}`}>
             <nav className="nav" aria-label="Main">
-              <NavLink to="/" end>Scooters</NavLink>
+              <NavLink to="/" end>Home</NavLink>
               {customer && <NavLink to="/dashboard">Dashboard</NavLink>}
               {customer && <NavLink to="/bookings">My Bookings</NavLink>}
               {isAdmin(user?.role) && <NavLink to="/admin">Admin</NavLink>}
@@ -227,7 +226,7 @@ function SiteFooter({ customer, admin, signedIn }: { customer: boolean; admin: b
         <nav aria-label="Footer">
           <ul>
             <li>
-              <Link to="/">Scooters</Link>
+              <Link to="/">Home</Link>
             </li>
             {customer && (
               <li>

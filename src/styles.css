@@ -1116,6 +1116,27 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 18px;
 }
 
+.password-input { position: relative; }
+.password-input input { padding-right: 3rem; }
+.password-input .password-input__toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  min-height: 36px;
+  width: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+}
+.password-input .password-input__toggle:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.password-input__toggle svg { width: 20px; height: 20px; }
+
 .auth-footer {
   text-align: center;
   margin: var(--space-5) auto 0;
