@@ -142,7 +142,7 @@ export function Layout() {
 
           <div id="site-menu" className={`site-menu${menu.open ? ' is-open' : ''}`}>
             <nav className="nav" aria-label="Main">
-              <NavLink to="/" end>Scooters</NavLink>
+              <NavLink to="/" end>Home</NavLink>
               {customer && <NavLink to="/dashboard">Dashboard</NavLink>}
               {customer && <NavLink to="/bookings">My Bookings</NavLink>}
               {isAdmin(user?.role) && <NavLink to="/admin">Admin</NavLink>}
@@ -227,7 +227,7 @@ function SiteFooter({ customer, admin, signedIn }: { customer: boolean; admin: b
         <nav aria-label="Footer">
           <ul>
             <li>
-              <Link to="/">Scooters</Link>
+              <Link to="/">Home</Link>
             </li>
             {customer && (
               <li>
