@@ -14,6 +14,7 @@ export interface User {
   drivingLicenseNo: string | null;
   country: string | null;
   active: boolean;
+  hasNicNumber: boolean;
   createdAt: string;
 }
 

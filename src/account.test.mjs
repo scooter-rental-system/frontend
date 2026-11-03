@@ -79,6 +79,14 @@ describe('admin profile', () => {
     for (const field of ['user.fullName', 'user.email', 'user.role']) assert.ok(page.includes(field), field);
     assert.doesNotMatch(page, /avatar|photo|department|title:/i);
   });
+
+  it('lets a customer complete a missing NIC once without exposing the stored number', () => {
+    const page = read('pages', 'Profile.tsx');
+    assert.match(page, /!user\.hasNicNumber && \(\s*<label htmlFor="profile-nicNumber">/);
+    assert.match(page, /user\.hasNicNumber \? profile : \{ \.\.\.profile, nicNumber \}/);
+    assert.match(page, /cannot be changed after you add it/);
+    assert.match(page, /\{user\.hasNicNumber \? 'Provided' : 'Not provided'\}/);
+  });
 });
 
 describe('back control', () => {
