@@ -73,7 +73,11 @@ describe('admin demo controls', () => {
   });
 
   it('use the agreed labels and say plainly that no payment is processed', () => {
-    assert.equal(DEMO_LABEL.activate, 'Viva Demo — Activate Rental');
+    assert.equal(DEMO_LABEL.activate, 'Viva Demo — Mark Ready for Pickup');
+    // Only the payment is skipped: the handover and the customer's start still follow.
+    assert.match(DEMO_HELP.activate, /handover \(with the starting odometer\) and the customer's start confirmation/);
+    assert.match(DEMO_HELP.end, /ending odometer/);
+    assert.match(panel, /const body = a === 'end' \? \{ endOdometerKm: ending\.value \} : undefined;/);
     assert.equal(DEMO_WARNING, 'Demo mode only. No real payment will be processed.');
     assert.match(panel, /<div className="alert warning" role="note">\s*\{DEMO_WARNING\}/);
     assert.match(panel, /message: `\$\{DEMO_HELP\[a\]\} \$\{DEMO_WARNING\}`/);
@@ -91,14 +95,16 @@ describe('admin demo controls', () => {
 });
 
 describe('a demo rental', () => {
-  it('is an active booking without a payment record', () => {
+  it('is a booking ready for pickup or active without a payment record', () => {
     assert.equal(isDemoRental(booking({ status: 'ACTIVE' })), true);
+    assert.equal(isDemoRental(booking({ status: 'READY_FOR_PICKUP' })), true);
+    assert.equal(isDemoRental(booking({ status: 'READY_FOR_PICKUP', payment: paid })), false);
     assert.equal(isDemoRental(booking({ status: 'ACTIVE', payment: paid })), false);
     assert.equal(isDemoRental(booking()), false);
   });
 
-  it('cannot be ended with the normal button, which would try to charge', () => {
-    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\) && !demoRental;/);
+  it('cannot be ended with the normal return panel, which would try to charge', () => {
+    assert.match(detail, /const canReturn = b\.stage === 'IN_PROGRESS' && adminView && !demoRental;/);
   });
 
   it('shows the calculated bill as not charged instead of the card balance panel', () => {

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { api } from '../api';
 import { DEMO_BANNER, DEMO_HELP, DEMO_LABEL, DEMO_WARNING, type DemoAction } from '../demo';
+import { parseEndOdometer } from '../handover';
 import { useAction } from '../hooks';
 import { useConfirm } from '../useConfirm';
 import { useDemoMode } from '../useDemoMode';
@@ -31,9 +33,16 @@ export function DemoControls({
 }) {
   const action = useAction();
   const { confirm, dialog } = useConfirm();
+  // Ending a demo rental needs the ending odometer, like any rental.
+  const [reading, setReading] = useState('');
+  const ending = parseEndOdometer(reading, b.startOdometerKm);
   if (actions.length === 0 && !blocker) return null;
 
   const run = async (a: DemoAction) => {
+    if (a === 'end' && ending.error !== undefined) {
+      action.setError(ending.error);
+      return;
+    }
     const ok = await confirm({
       title: `${DEMO_LABEL[a]}?`,
       message: `${DEMO_HELP[a]} ${DEMO_WARNING}`,
@@ -43,7 +52,8 @@ export function DemoControls({
     });
     if (!ok) return;
     const path = `/admin/demo/bookings/${encodeURIComponent(b.id)}/${a}`;
-    if (await action.run(() => api.post<Booking>(path).then(() => true))) onChanged();
+    const body = a === 'end' ? { endOdometerKm: ending.value } : undefined;
+    if (await action.run(() => api.post<Booking>(path, body).then(() => true))) onChanged();
   };
 
   return (
@@ -60,6 +70,17 @@ export function DemoControls({
       {actions.map((a) => (
         <div key={a} className="demo-panel__action">
           <p className="muted small">{DEMO_HELP[a]}</p>
+          {a === 'end' && (
+            <label>
+              Ending odometer (km){b.startOdometerKm != null && ` · started at ${b.startOdometerKm} km`}
+              <input
+                id="demo-end-odometer"
+                inputMode="decimal"
+                value={reading}
+                onChange={(e) => setReading(e.target.value)}
+              />
+            </label>
+          )}
           <button
             id={`btn-demo-${a}`}
             className={a === 'close' ? 'danger' : 'primary'}

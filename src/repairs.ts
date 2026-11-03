@@ -113,9 +113,47 @@ export const unresolvedReimbursements = (reports: readonly Pick<RepairReport, 's
 export const UNRESOLVED_REPAIRS_ADMIN =
   'This rental has unresolved repair reports. Resolve them before calculating the final bill: open Repairs, review the report, enter any approved reimbursement, set it to Resolved and save, then come back and end the rental.';
 
+/** Next to the disabled "End rental" button, so the admin sees why it cannot be pressed. */
+export const RETURN_BLOCKED_BY_REPAIRS =
+  'Ending is blocked: a self-arranged repair report is not resolved yet. Review it in Repairs, enter any approved reimbursement, set it to Resolved and save; then enter the ending odometer here.';
+
 export const UNRESOLVED_REPAIRS_CUSTOMER =
   'Your repair report is still being reviewed. The rental can be ended once our team has resolved it, so any approved reimbursement is included in your final bill.';
 
 export const CLAIM_NOTE = 'A claimed amount is reviewed by our team; only an approved amount reduces the bill.';
+
+/** On a saved self-arranged report that is not Resolved: the step that still holds back the final bill. */
+export const RESOLVE_TO_BILL =
+  'This report is not Resolved, so the rental cannot be ended and no reimbursement is deducted yet. To approve the reimbursement and allow final billing, choose Resolved in Status, then click Save review.';
+
+/**
+ * The body of Save review from what the form shows. The status must be one of the four; the approved amount is sent
+ * only for a repair the customer arranged themselves. Null when the status is not a known one.
+ */
+export function repairReviewBody(
+  selfArranged: boolean,
+  status: unknown,
+  approved: string,
+  note: string,
+): { status: RepairStatus; adminNote: string | null; approvedAmount: number | null } | null {
+  const chosen = REPAIR_STATUSES.find((s) => s === status);
+  if (!chosen) return null;
+  const amount = approved.trim() === '' ? null : Number(approved.trim());
+  return {
+    status: chosen,
+    adminNote: note.trim() === '' ? null : note,
+    approvedAmount: selfArranged ? amount : null,
+  };
+}
+
+/** After a successful Save review, from the status in the server's answer (never from the unsaved form). */
+export function savedReviewMessage(selfArranged: boolean, savedStatus: RepairStatus): string {
+  if (savedStatus === 'RESOLVED') return 'Saved. Status is now Resolved. The customer has been notified.';
+  if (selfArranged) {
+    return `Saved with status ${REPAIR_STATUS_LABEL[savedStatus]}. This report is still not Resolved, so the rental cannot be ended yet.`;
+  }
+  return `Saved with status ${REPAIR_STATUS_LABEL[savedStatus]}. The customer has been notified.`;
+}
+
 export const APPROVAL_HELP =
   "Deducted from the customer's final bill when the rental ends, once the report is Resolved. The customer's claimed amount is never deducted automatically.";

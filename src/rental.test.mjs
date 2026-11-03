@@ -13,8 +13,11 @@ import {
   categoryOf,
   liveState,
   rightNow,
+  MAX_CREDIBLE_SPEED_KMH,
   SPEED_LIMIT_KMH,
   speedState,
+  SUSTAINED_OVERSPEED_READINGS,
+  sustainedOverspeed,
   STAGE_HELP,
   timeline,
 } from './rental.ts';
@@ -192,19 +195,24 @@ describe('booking detail', () => {
 
   it('keeps the cancel, end-rental and ownership rules', () => {
     assert.match(detail, /const isOwner = user\?\.id === b\.customer\.id;/);
-    assert.match(detail, /const canCancel = b\.stage === 'AWAITING_PAYMENT' \|\| b\.stage === 'PAYMENT_FAILED' \|\| b\.stage === 'UPCOMING';/);
+    assert.match(detail, /const adminView = inAdmin && isAdmin\(user\?\.role\);/);
+    assert.match(detail, /b\.stage === 'UPCOMING' \|\|\s*canCancelPickup\(b, adminView\);/);
     // A viva demo rental (no payment record) is ended only by the admin demo controls.
     assert.match(detail, /const demoRental = isDemoRental\(b\);/);
-    assert.match(detail, /const canEnd = b\.stage === 'IN_PROGRESS' && \(isOwner \|\| isAdmin\(user\?\.role\)\) && !demoRental;/);
+    // Only an admin ends a rental, at the counter, with the ending odometer.
+    assert.match(detail, /const canReturn = b\.stage === 'IN_PROGRESS' && adminView && !demoRental;/);
     // Phase 6: the accessible dialog replaced window.confirm; the cancel message and the "no" path are unchanged.
     assert.match(detail, /const ok = await confirm\(\{\s*title: 'Cancel booking\?',\s*message: msg,/);
     assert.match(detail, /if \(!ok\) return;\s*if \(await cancel\.run\(/);
-    assert.match(detail, /await end\.run\(\(\) => api\.put<Booking>\(`\$\{bookingApi\}\/complete`, \{\}\)\);/);
+    assert.match(detail, /await end\.run\(\(\) => api\.put<Booking>\(completePath\(b\.id\), \{\}\)\);/);
   });
 
-  it('shows the primary action, End rental and Cancel only under those rules', () => {
+  it('shows the primary action, the pickup and return panels and Cancel only under those rules', () => {
     assert.match(detail, /\{b\.status === 'PENDING' && isOwner && \(\s*<Link className="btn primary" to=\{checkoutPath\(b\.id\)\}>/);
-    assert.match(detail, /\{canEnd && \(\s*<button className="primary booking-header__end" onClick=\{doEnd\}/);
+    assert.match(detail, /<PickupPanel booking=\{b\} admin=\{adminView\} owner=\{isOwner && !adminView\} onChanged=\{refresh\} \/>/);
+    assert.match(detail, /\{canReturn && \(\s*<ReturnPanel/);
+    assert.match(detail, /\{b\.stage === 'IN_PROGRESS' && !adminView && !demoRental && \(\s*<div className="alert info" role="note">\s*\{RETURN_AT_COUNTER_NOTE\}/);
+    assert.doesNotMatch(detail, /booking-header__end/);
     assert.match(detail, /\{canCancel && \(\s*<button className="danger" onClick=\{doCancel\}/);
     assert.doesNotMatch(detail, /to=\{`\/bookings\/\$\{b\.id\}\/checkout`\}/);
   });
@@ -233,7 +241,7 @@ describe('booking detail', () => {
   it('keeps the payment-return handling and the confirmed state gated on the backend', () => {
     assert.match(detail, /function usePaymentReturn\(/);
     assert.match(detail, /awaitBackendRecord\(\(\) => api\.get<Booking>\(bookingApi\), purpose\)/);
-    assert.match(detail, /\{params\.get\('paid'\) && b\.status === 'ACTIVE' && \(/);
+    assert.match(detail, /\{params\.get\('paid'\) && b\.status === 'READY_FOR_PICKUP' && \(/);
   });
 });
 
@@ -247,14 +255,31 @@ describe('live rental', () => {
     assert.deepEqual(liveState(undefined), { label: 'No location yet', tone: '' });
   });
 
-  it('warns in words above the backend speed limit (display only)', () => {
+  it('shows phone GPS speed as approximate and reminds of the limit only after a sustained run (display only)', () => {
+    const r = (...speeds) => speeds.map((speedKmh) => ({ speedKmh }));
     assert.equal(SPEED_LIMIT_KMH, 60);
-    assert.deepEqual(speedState(42.4, false), { text: '42 km/h', over: false });
-    assert.deepEqual(speedState(60, false), { text: '60 km/h', over: false });
-    assert.deepEqual(speedState(72.6, false), { text: '73 km/h', over: true });
-    assert.deepEqual(speedState(90, true), { text: '—', over: false });
-    assert.deepEqual(speedState(null, false), { text: '—', over: false });
-    assert.match(detail, /\{speed\.over && \(\s*<div className="alert warning" role="alert">\s*<strong>Over the speed limit:<\/strong>/);
+    assert.equal(MAX_CREDIBLE_SPEED_KMH, 150);
+    assert.equal(SUSTAINED_OVERSPEED_READINGS, 3);
+    assert.deepEqual(speedState(r(42.4), false), { text: '≈ 42 km/h', over: false });
+    assert.deepEqual(speedState(r(61, 62, 60), false), { text: '≈ 60 km/h', over: false });
+    // One spike (the 126 km/h case) is shown, approximately, but never as over the limit.
+    assert.deepEqual(speedState(r(12, 10, 126), false), { text: '≈ 126 km/h', over: false });
+    assert.deepEqual(speedState(r(70, 126), false), { text: '≈ 126 km/h', over: false });
+    // Three consecutive credible readings over the limit.
+    assert.deepEqual(speedState(r(20, 72.6, 75, 80), false), { text: '≈ 80 km/h', over: true });
+    // An implausible reading is unreliable and breaks a run.
+    assert.deepEqual(speedState(r(70, 75, 400), false), { text: 'Unreliable reading', over: false });
+    assert.equal(sustainedOverspeed(r(70, 400, 75, 80)), false);
+    assert.equal(sustainedOverspeed(r(70, 75, null)), false);
+    assert.equal(sustainedOverspeed(undefined), false);
+    assert.deepEqual(speedState(r(90, 90, 90), true), { text: '—', over: false });
+    assert.deepEqual(speedState(r(null), false), { text: '—', over: false });
+    assert.deepEqual(speedState([], false), { text: '—', over: false });
+    assert.match(detail, /const speed = speedState\(tracking\?\.trail, !!p\?\.stale\);/);
+    assert.match(detail, /\{speed\.over && \(\s*<div className="alert warning" role="status">\s*<strong>Speed reminder:<\/strong>/);
+    assert.match(detail, /Phone GPS speed is approximate/);
+    assert.doesNotMatch(detail, /Over the speed limit:/);
+    assert.match(detail, /label="Approx\. speed \(phone GPS\)"/);
   });
 
   it('keeps the real GPS reporting, 10-second tracking poll and map', () => {

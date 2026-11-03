@@ -115,12 +115,14 @@ describe('pricing shown to customers', () => {
     assert.doesNotMatch(book, /g\.hourlyRate|gear.*\/ hour/);
   });
 
-  it('estimates a running rental with the same rule as the bill, charging only km above the allowance', () => {
+  it('estimates a running rental from its actual start with the same time rule as the bill, never from GPS km', () => {
     const detail = read('pages', 'BookingDetail.tsx');
+    assert.match(detail, /const elapsedMs = Date\.now\(\) - new Date\(b\.actualStartTime \?\? b\.startTime\)\.getTime\(\);/);
     assert.match(detail, /scooterTimeCost\(elapsedMs, b\.scooter\.dailyRate, b\.scooter\.hourlyRate\)/);
-    assert.match(detail, /const chargeableKm = excessKm\(km, scooterTime\(elapsedMs\)\.days\);/);
-    assert.match(detail, /chargeableKm \* b\.scooter\.perKmRate/);
     assert.match(detail, /const gearDays = chargedGearDays\(elapsedMs\);/);
+    // The distance is charged from the odometer at return: GPS km are shown, never priced.
+    assert.doesNotMatch(detail, /excessKm\(km|km \* b\.scooter\.perKmRate|chargeableKm/);
+    assert.match(detail, /<Stat label="Tracked GPS distance" value=\{`\$\{km\.toFixed\(2\)\} km`\} hint="Approximate · not billed" \/>/);
   });
 
   it('shows how an ended rental was charged, from the backend breakdown', () => {

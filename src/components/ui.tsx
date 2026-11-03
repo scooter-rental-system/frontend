@@ -59,6 +59,7 @@ export function Empty({ children }: { children: ReactNode }) {
 const STAGE_TONE: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'amber',
   PAYMENT_FAILED:   'red',
+  READY_FOR_PICKUP: 'blue',
   UPCOMING:         'blue',
   IN_PROGRESS:      'green',
   BALANCE_DUE:      'amber',

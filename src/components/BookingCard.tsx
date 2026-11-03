@@ -35,7 +35,8 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
             <StageBadge stage={b.stage} status={b.status} />
           </div>
           <div className="muted small">
-            {b.reference} · {b.scooter.plateNumber} · Starts {dateTime(b.startTime)}
+            {b.reference} · {b.scooter.plateNumber} ·{' '}
+            {b.actualStartTime ? `Started ${dateTime(b.actualStartTime)}` : `Pickup ${dateTime(b.startTime)}`}
           </div>
           {needsAction(b) && (
             <div className="booking-card__action small">
@@ -75,7 +76,8 @@ export function BookingCard({ booking: b }: { booking: Booking }) {
           </DetailRow>
           <DetailRow label="Pickup">{b.pickupLocation}</DetailRow>
           {b.dropLocation && <DetailRow label="Drop-off">{b.dropLocation}</DetailRow>}
-          <DetailRow label="Start">{dateTime(b.startTime)}</DetailRow>
+          <DetailRow label="Planned pickup">{dateTime(b.startTime)}</DetailRow>
+          {b.actualStartTime && <DetailRow label="Rental started">{dateTime(b.actualStartTime)}</DetailRow>}
           {(b.endTime ?? b.endedAt) && <DetailRow label="Ended">{dateTime(b.endTime ?? b.endedAt)}</DetailRow>}
           {b.cancelledAt && <DetailRow label="Cancelled">{dateTime(b.cancelledAt)}</DetailRow>}
           {b.billableHours != null && <DetailRow label="Billable hours">{b.billableHours}</DetailRow>}

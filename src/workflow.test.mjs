@@ -30,8 +30,14 @@ describe('unresolved repairs hold back the final bill', () => {
 
   it('disables End rental and explains the order to follow', () => {
     assert.match(detail, /const openRepairs = unresolvedReimbursements\(repairs\.data \?\? \[\]\);/);
-    assert.match(detail, /onClick=\{doEnd\} disabled=\{end\.busy \|\| openRepairs\.length > 0\}>/);
-    assert.match(detail, /\{canEnd && openRepairs\.length > 0 && \(/);
+    assert.match(detail, /blockedReason=\{openRepairs\.length > 0 \? RETURN_BLOCKED_BY_REPAIRS : null\}/);
+    const returnPanel = read('components', 'ReturnPanel.tsx');
+    assert.match(returnPanel, /\{blockedReason && \(\s*<div className="alert warning" role="status">\s*\{blockedReason\}/);
+    assert.match(returnPanel, /<ErrorAlert error=\{end\.error\} \/>/);
+    // A reload after the action keeps the page, so a refusal from the backend is not lost.
+    assert.match(detail, /if \(booking\.loading && !booking\.data\) return <Loading \/>;/);
+    assert.match(read('components', 'ReturnPanel.tsx'), /disabled=\{end\.busy \|\| blocked \|\| \(needsReading && !reading\.trim\(\)\)\}/);
+    assert.match(detail, /\{b\.stage === 'IN_PROGRESS' && !demoRental && openRepairs\.length > 0 && \(/);
     assert.match(detail, /\{inAdmin \? UNRESOLVED_REPAIRS_ADMIN : UNRESOLVED_REPAIRS_CUSTOMER\}/);
     assert.match(detail, /<Link to="\/admin\/repairs">Open Repairs<\/Link>/);
     assert.match(UNRESOLVED_REPAIRS_ADMIN, /^This rental has unresolved repair reports\. Resolve them before calculating the final bill/);

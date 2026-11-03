@@ -81,6 +81,7 @@ export function filterBookings(bookings: Booking[], filter: HistoryFilter): Book
 export const STAGE_LABEL: Record<BookingStage, string> = {
   AWAITING_PAYMENT: 'Awaiting payment',
   PAYMENT_FAILED: 'Payment failed',
+  READY_FOR_PICKUP: 'Ready for pickup',
   UPCOMING: 'Upcoming',
   IN_PROGRESS: 'In progress',
   BALANCE_DUE: 'Balance due',
