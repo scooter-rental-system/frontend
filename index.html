@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/scooter.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Scooter Rent Kandy: book scooters and camping gear online in Kandy, Sri Lanka" />
+    <title>Scooter Rent Kandy</title>
+    <script>
+      // Applies the saved colour theme before the app paints, so it does not flash the wrong one.
+      // Same rules as src/themeMode.ts: Light and Dark are explicit; anything else follows the device.
+      (function () {
+        var theme = 'system';
+        try {
+          theme = localStorage.getItem('srs.theme') || 'system';
+        } catch (e) {}
+        var dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var root = document.documentElement;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        root.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
