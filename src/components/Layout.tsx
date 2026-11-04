@@ -73,8 +73,8 @@ function ThemeToggle() {
           {THEME_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              aria-pressed={theme === opt.value || (theme === 'system' && resolved === opt.value)}
-              className={theme === opt.value || (theme === 'system' && resolved === opt.value) ? 'is-active' : ''}
+              aria-pressed={theme === opt.value}
+              className={theme === opt.value ? 'is-active' : ''}
               onClick={() => {
                 setTheme(opt.value);
                 setOpen(false);

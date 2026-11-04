@@ -46,7 +46,7 @@ export default function Reports() {
       {r && (
         <>
           <div className="kpi-grid">
-            <Kpi label="Gross revenue" value={money(r.revenue)} hint="Payments collected" accent />
+            <Kpi label="Gross revenue" value={money(r.revenue)} hint="Payments collected" accent compactValue />
             <Kpi label="Fleet utilisation" value={`${r.fleetUtilizationPct}%`} hint="Rented scooter-hours" />
             <Kpi label="Bookings created" value={r.bookingsCreated} />
             <Kpi label="New customers" value={r.newCustomers} />
@@ -152,9 +152,21 @@ export default function Reports() {
   );
 }
 
-function Kpi({ label, value, hint, accent }: { label: string; value: React.ReactNode; hint?: string; accent?: boolean }) {
+function Kpi({
+  label,
+  value,
+  hint,
+  accent,
+  compactValue,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  accent?: boolean;
+  compactValue?: boolean;
+}) {
   return (
-    <div className={`kpi${accent ? ' kpi--accent' : ''}`}>
+    <div className={`kpi${accent ? ' kpi--accent' : ''}${compactValue ? ' kpi--compact-value' : ''}`}>
       <div className="kpi__label">{label}</div>
       <div className="kpi__value">{value}</div>
       {hint && <div className="kpi__hint">{hint}</div>}

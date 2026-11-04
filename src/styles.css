@@ -1429,6 +1429,10 @@ tbody tr:last-child td { border-bottom: none; }
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
+.kpi--compact-value .kpi__value {
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  white-space: nowrap;
+}
 .kpi__hint { color: var(--text-muted); font-size: 0.8125rem; }
 /* Needs attention: a warning outline and a worded flag (not colour alone). */
 .kpi.is-attention { border-color: var(--warning); box-shadow: inset 0 0 0 1px var(--warning); }

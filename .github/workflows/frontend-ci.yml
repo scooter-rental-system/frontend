@@ -1,0 +1,55 @@
+name: Frontend CI & Deploy Trigger
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  lint-test-build:
+    name: Lint, Test, and Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Unit & Integration Tests
+        run: npm test
+
+      - name: Build Frontend Application
+        run: npm run build
+
+  trigger-infra-deploy:
+    name: Trigger Infra Deployment
+    needs: [lint-test-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Event to Infra Repo
+        env:
+          DISPATCH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering deployment in scooter-rental-system/infra..."
+          curl -s -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer $DISPATCH_TOKEN" \
+            https://api.github.com/repos/scooter-rental-system/infra/dispatches \
+            -d "{\"event_type\": \"frontend-updated\", \"client_payload\": {\"branch\": \"${{ github.ref_name }}\", \"commit\": \"${{ github.sha }}\"}}" \
+            || echo "Repository dispatch triggered (or skipped if token not configured)."
